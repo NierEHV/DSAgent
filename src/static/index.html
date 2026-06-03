@@ -353,19 +353,25 @@ function clearAlerts(){allAlerts=allAlerts.filter(a=>!a.resolved);renderAlertPan
 /* ══════════════════════════ LOG DETAIL MODAL ══════════════════════════ */
 function openLogDetail(type,time,source,detail){
   const typeLabel={inventory:'📦 库存巡检',advertising:'📢 广告巡检',competitor:'🔍 竞品巡检',profit:'💰 利润巡检',decision:'✍️ 决策记录',alert_pending:'🔔 待处理告警'}[type]||'📌 系统日志';
+  const typeEmoji={inventory:'📦',advertising:'📢',competitor:'🔍',profit:'💰',decision:'✍️',alert_pending:'🔔'}[type]||'📌';
   const snapInfo={
-    inventory:{desc:'FBA库存健康度检查',metrics:'检查所有SKU的FBA库存量、可售天数、在途库存',rule:'库存<7天→严重 | 7-14天→预警 | >90天→冗余'},
-    advertising:{desc:'广告表现分析',metrics:'检查ACOS、ROAS、CTR、预算使用率',rule:'ACOS>30%且超14天均值1.5倍→异常 | 预算使用>90%→耗尽风险'},
-    competitor:{desc:'跟卖与Buy Box监控',metrics:'检查Buy Box持有者、新卖家、价格对比',rule:'Buy Box丢失→严重 | 发现低评分新卖家→严重'},
-    profit:{desc:'利润异常检测',metrics:'检查毛利率、退款率、广告费占比',rule:'毛利率<10%→严重 | 退款率>10%→严重 | 广告占比>30%→预警'},
+    inventory:{desc:'FBA库存健康度检查',metrics:'FBA库存量 | 可售天数 | 在途库存 | 日均销量',rule:'<7天严重 | 7-14天预警 | >90天冗余'},
+    advertising:{desc:'广告表现分析',metrics:'ACOS | ROAS | CPC | CTR | 预算使用率',rule:'ACOS>30%且超均值1.5x | 预算>90%耗尽'},
+    competitor:{desc:'跟卖与Buy Box监控',metrics:'Buy Box持有者 | 新卖家检测 | 价格对比 | BSR',rule:'Buy Box丢失→严重 | 低评分新卖家→严重'},
+    profit:{desc:'利润异常检测',metrics:'毛利率 | 退款率 | 广告费占比 | FBA费',rule:'毛利率<10%严重 | <15%预警 | 退款>10%严重'},
+    decision:{desc:'用户操作决策',metrics:'决策类型 | 操作人 | 备注',rule:'高风险操作需主管终审'},
+    alert_pending:{desc:'待处理告警',metrics:'告警级别 | 所属类型 | 触发时间',rule:'严重告警需人工确认'},
   };
-  const info=snapInfo[type]||{desc:'系统运行日志',metrics:'—',rule:'—'};
+  const info=snapInfo[type]||snapInfo.inventory;
+  const resultSummary=detail||'本次巡检未发现异常，所有指标均在正常范围内。';
+  const hasIssue=detail&&detail.includes('critical');
+
   const body=document.getElementById('alert-modal-body');
   body.innerHTML=`
     <button class="modal-close" onclick="closeAlertDetail()">✕</button>
     <h2>${typeLabel}</h2>
-    <div class="modal-sub">${time||''} | 数据源: ${source||'Mock'}</div>
-    <div class="modal-section"><h3>巡检详情</h3>
+    <div class="modal-sub">${time||''} | 数据源: ${source||'Mock'} | ${hasIssue?'🔴 发现异常':'✅ 正常'}</div>
+    <div class="modal-section"><h3>数据快照</h3>
       <table class="modal-table">
         <tr><td>巡检类型</td><td>${info.desc}</td></tr>
         <tr><td>检查指标</td><td>${info.metrics}</td></tr>
@@ -374,13 +380,14 @@ function openLogDetail(type,time,source,detail){
         <tr><td>数据来源</td><td>${source||'Mock 模式'}</td></tr>
       </table>
     </div>
-    <div class="modal-section"><h3>结果</h3>
-      <div class="modal-ai">${detail||'无异常'}</div>
+    <div class="modal-section"><h3>🤖 分析摘要</h3>
+      <div class="modal-ai"><span class="label ai">AI</span><br>${resultSummary}</div>
     </div>
-    <div class="modal-actions">
-      <button class="btn primary" onclick="navigate('${type}');closeAlertDetail()">查看完整分析</button>
-      ${type==='decision'?'':`<button class="btn" onclick="closeAlertDetail();openLogDetail('decision','','system','已创建审批记录')">查看相关决策</button>`}
-      <button class="btn" onclick="closeAlertDetail()">关闭</button>
+    <div class="modal-section"><h3>操作</h3>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="navigate('${type}');closeAlertDetail()">查看完整分析</button>
+        <button class="btn" onclick="closeAlertDetail()">关闭</button>
+      </div>
     </div>`;
   document.getElementById('alert-modal').classList.add('show');
 }

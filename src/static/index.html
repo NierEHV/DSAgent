@@ -349,10 +349,45 @@ function openAlertDetail(alertId){
 function closeAlertDetail(){document.getElementById('alert-modal').classList.remove('show');}
 document.getElementById('alert-modal').addEventListener('click',function(e){if(e.target===this)closeAlertDetail();});
 function clearAlerts(){allAlerts=allAlerts.filter(a=>!a.resolved);renderAlertPanel();}
+
+/* ══════════════════════════ LOG DETAIL MODAL ══════════════════════════ */
+function openLogDetail(type,time,source,detail){
+  const typeLabel={inventory:'📦 库存巡检',advertising:'📢 广告巡检',competitor:'🔍 竞品巡检',profit:'💰 利润巡检',decision:'✍️ 决策记录',alert_pending:'🔔 待处理告警'}[type]||'📌 系统日志';
+  const snapInfo={
+    inventory:{desc:'FBA库存健康度检查',metrics:'检查所有SKU的FBA库存量、可售天数、在途库存',rule:'库存<7天→严重 | 7-14天→预警 | >90天→冗余'},
+    advertising:{desc:'广告表现分析',metrics:'检查ACOS、ROAS、CTR、预算使用率',rule:'ACOS>30%且超14天均值1.5倍→异常 | 预算使用>90%→耗尽风险'},
+    competitor:{desc:'跟卖与Buy Box监控',metrics:'检查Buy Box持有者、新卖家、价格对比',rule:'Buy Box丢失→严重 | 发现低评分新卖家→严重'},
+    profit:{desc:'利润异常检测',metrics:'检查毛利率、退款率、广告费占比',rule:'毛利率<10%→严重 | 退款率>10%→严重 | 广告占比>30%→预警'},
+  };
+  const info=snapInfo[type]||{desc:'系统运行日志',metrics:'—',rule:'—'};
+  const body=document.getElementById('alert-modal-body');
+  body.innerHTML=`
+    <button class="modal-close" onclick="closeAlertDetail()">✕</button>
+    <h2>${typeLabel}</h2>
+    <div class="modal-sub">${time||''} | 数据源: ${source||'Mock'}</div>
+    <div class="modal-section"><h3>巡检详情</h3>
+      <table class="modal-table">
+        <tr><td>巡检类型</td><td>${info.desc}</td></tr>
+        <tr><td>检查指标</td><td>${info.metrics}</td></tr>
+        <tr><td>触发规则</td><td>${info.rule}</td></tr>
+        <tr><td>执行时间</td><td>${time||'—'}</td></tr>
+        <tr><td>数据来源</td><td>${source||'Mock 模式'}</td></tr>
+      </table>
+    </div>
+    <div class="modal-section"><h3>结果</h3>
+      <div class="modal-ai">${detail||'无异常'}</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="navigate('${type}');closeAlertDetail()">查看完整分析</button>
+      ${type==='decision'?'':`<button class="btn" onclick="closeAlertDetail();openLogDetail('decision','','system','已创建审批记录')">查看相关决策</button>`}
+      <button class="btn" onclick="closeAlertDetail()">关闭</button>
+    </div>`;
+  document.getElementById('alert-modal').classList.add('show');
+}
 async function loadSystemLogs(){
   const list=document.getElementById('log-list');if(!list)return;
   try{const r=await fetch(API+'/logs?lines=30');const d=await r.json();const logs=d.logs||[];
-    list.innerHTML=logs.length?logs.slice(0,15).map(l=>`<div class="log-row"><span class="log-time">${(l.time||'').substring(11,19)}</span><span>[${l.type}]</span><span>${l.source?.join?.(',')||''} ${l.items||l.decision||''}</span></div>`).join(''):'<div style="text-align:center;color:var(--txt3);padding:20px">暂无日志</div>';
+    list.innerHTML=logs.length?logs.slice(0,15).map(l=>`<div class="log-row" style="cursor:pointer" onclick="openLogDetail('${l.type||''}','${l.time||''}','${(l.source||'').toString()}','${l.items||l.decision||''}')"><span class="log-time">${(l.time||'').substring(11,19)}</span><span>[${l.type}]</span><span>${(l.source||'').toString()} ${l.items||l.decision||''}</span><span style="margin-left:auto;color:var(--blue);font-size:10px">查看 →</span></div>`).join(''):'<div style="text-align:center;color:var(--txt3);padding:20px">暂无日志</div>';
   }catch(e){}
 }
 

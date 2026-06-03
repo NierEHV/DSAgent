@@ -182,7 +182,7 @@ function authHeaders(){return token?{Authorization:'Bearer '+token}:{}}
 function toggleTheme(){const n=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('dsagent-theme',n);updateTopbar()}
 
 /* ══════════════════════════ SIDEBAR ══════════════════════════ */
-const NAV=[{section:'监控中心',items:[{id:'dashboard',icon:'📊',label:'运营总览'}]},{section:'AI Agent',items:[{id:'inventory',icon:'📦',label:'库存预警'},{id:'advertising',icon:'📢',label:'广告分析'},{id:'profit',icon:'💰',label:'利润分析'},{id:'competitor',icon:'🔍',label:'跟卖监控'},{id:'listing',icon:'📋',label:'Listing优化'}]},{section:'工具',items:[{id:'checkall',icon:'▶',label:'一键巡检'},{id:'report',icon:'📊',label:'运营日报'}]},{section:'系统配置',items:[
+const NAV=[{section:'监控中心',items:[{id:'dashboard',icon:'📊',label:'运营总览'},{id:'products',icon:'🏷',label:'产品中心'}]},{section:'AI Agent',items:[{id:'inventory',icon:'📦',label:'库存预警'},{id:'advertising',icon:'📢',label:'广告分析'},{id:'profit',icon:'💰',label:'利润分析'},{id:'competitor',icon:'🔍',label:'跟卖监控'},{id:'listing',icon:'📋',label:'Listing优化'}]},{section:'工具',items:[{id:'checkall',icon:'▶',label:'一键巡检'},{id:'report',icon:'📊',label:'运营日报'}]},{section:'系统配置',items:[
   {id:'settings-llm',icon:'🤖',label:'LLM 模型'},{id:'settings-datasource',icon:'📡',label:'数据源'},{id:'settings-alerts',icon:'🔔',label:'告警阈值'},{id:'settings-notify',icon:'📢',label:'通知渠道'},{id:'settings-monitor',icon:'🎯',label:'监控对象'},{id:'settings-scheduler',icon:'⏱',label:'调度策略'},{id:'settings-storage',icon:'💾',label:'存储'},{id:'settings-ui',icon:'🎨',label:'界面'},{id:'settings-prompts',icon:'📝',label:'Prompt'},{id:'settings-rag',icon:'📚',label:'知识库'},{id:'settings-n8n',icon:'⚡',label:'n8n 工作流'},]}];
 
 function buildSidebar(){
@@ -222,6 +222,7 @@ function renderPage(page){
   else if(['inventory','advertising','profit','competitor','listing'].includes(page))renderAgentPage(ct,page);
   else if(page==='checkall'){navigate('dashboard');checkAll();}
   else if(page==='report')renderReportPage(ct);
+  else if(page==='products')renderProductsPage(ct);
   else ct.innerHTML='<div style="padding:40px;text-align:center;color:var(--txt3)">开发中...</div>';
 }
 
@@ -411,7 +412,131 @@ async function renderAgentPage(ct,agent){
   }catch(e){ct.innerHTML=`<div style="color:var(--red);text-align:center;padding:40px">${e.message}</div>`;}
 }
 
-/* ══════════════════════════ REPORT PAGE ══════════════════════════ */
+/* ══════════════════════════ PRODUCTS PAGE ══════════════════════════ */
+const PLATFORMS=[
+  {id:'us',name:'Amazon US',flag:'🇺🇸',marketplace:'ATVPDKIKX0DER',currency:'$'},
+  {id:'jp',name:'Amazon JP',flag:'🇯🇵',marketplace:'A1VC38T7YXB528',currency:'¥'},
+  {id:'uk',name:'Amazon UK',flag:'🇬🇧',marketplace:'A1F83G8C2ARO7P',currency:'£'},
+  {id:'de',name:'Amazon DE',flag:'🇩🇪',marketplace:'A1PA6795UKMFR9',currency:'€'},
+  {id:'ca',name:'Amazon CA',flag:'🇨🇦',marketplace:'A2EUQ1WTGCTBG2',currency:'CA$'},
+];
+const PRODUCT_MOCK=[
+  {sku:'SKU-BT001-BLK',asin:'B09XYZ0001',name:'Bluetooth 5.3 Wireless Earbuds',brand:'SoundPro',category:'Electronics',price:29.99,stock:38,sales7:12,sales30:320,bsr:1240,acos:16.8,margin:12.9,rating:4.5,reviews:156,platform:'us',status:'active'},
+  {sku:'SKU-BT001-WHT',asin:'B09XYZ0002',name:'Bluetooth 5.3 Earbuds White',brand:'SoundPro',category:'Electronics',price:29.99,stock:10,sales7:8.5,sales30:255,bsr:2180,acos:22.3,margin:8.5,rating:4.3,reviews:98,platform:'us',status:'active'},
+  {sku:'SKU-SPK001',asin:'B08ABC1234',name:'Portable Bluetooth Speaker IPX7',brand:'SoundPro',category:'Electronics',price:39.99,stock:510,sales7:4,sales30:120,bsr:8900,acos:28.1,margin:-9.6,rating:4.1,reviews:312,platform:'us',status:'active'},
+  {sku:'SKU-CHG001',asin:'B07DEF5678',name:'USB-C Fast Charger 65W GaN',brand:'PowerUp',category:'Accessories',price:24.99,stock:2,sales7:18,sales30:540,bsr:320,acos:15.9,margin:25.6,rating:4.7,reviews:423,platform:'us',status:'active'},
+  {sku:'SKU-CHG002',asin:'B07DEF5679',name:'USB-C to Lightning Cable 3-Pack',brand:'PowerUp',category:'Accessories',price:14.99,stock:170,sales7:25,sales30:750,bsr:185,acos:12.4,margin:35.2,rating:4.8,reviews:891,platform:'us',status:'active'},
+  {sku:'SKU-LMP001',asin:'B05GHI9012',name:'Smart LED Desk Lamp Wireless Charger',brand:'BrightLife',category:'Home',price:49.99,stock:80,sales7:3,sales30:90,bsr:4500,acos:19.5,margin:18.3,rating:4.4,reviews:67,platform:'us',status:'active'},
+  {sku:'SKU-BTL001',asin:'B06JKL3456',name:'Stainless Steel Water Bottle 32oz',brand:'EcoVessel',category:'Sports',price:22.99,stock:200,sales7:6,sales30:180,bsr:2100,acos:17.2,margin:22.1,rating:4.6,reviews:234,platform:'us',status:'active'},
+  {sku:'SKU-JP-BT01',asin:'B0JPX00001',name:'ワイヤレスイヤホン Bluetooth 5.3',brand:'SoundPro',category:'Electronics',price:3980,stock:65,sales7:22,sales30:660,bsr:580,acos:11.5,margin:28.4,rating:4.6,reviews:512,platform:'jp',status:'active'},
+  {sku:'SKU-JP-CHG01',asin:'B0JPX00002',name:'USB-C 急速充電器 65W GaN',brand:'PowerUp',category:'Accessories',price:3480,stock:15,sales7:30,sales30:900,bsr:120,acos:9.8,margin:32.1,rating:4.8,reviews:1203,platform:'jp',status:'active'},
+  {sku:'SKU-JP-SPK01',asin:'B0JPX00003',name:'ポータブルBluetoothスピーカー',brand:'SoundPro',category:'Electronics',price:4980,stock:320,sales7:5,sales30:150,bsr:3200,acos:24.6,margin:5.2,rating:4.0,reviews:89,platform:'jp',status:'active'},
+  {sku:'SKU-UK-CHG01',asin:'B0UKP00001',name:'USB-C GaN Fast Charger 65W',brand:'PowerUp',category:'Accessories',price:19.99,stock:8,sales7:28,sales30:840,bsr:95,acos:10.2,margin:30.5,rating:4.9,reviews:1567,platform:'uk',status:'active'},
+  {sku:'SKU-UK-BT01',asin:'B0UKP00002',name:'Wireless Earbuds Bluetooth 5.3',brand:'SoundPro',category:'Electronics',price:24.99,stock:42,sales7:15,sales30:450,bsr:890,acos:14.3,margin:20.8,rating:4.5,reviews:345,platform:'uk',status:'active'},
+  {sku:'SKU-DE-CHG01',asin:'B0DEP00001',name:'USB-C GaN Schnellladegerät 65W',brand:'PowerUp',category:'Accessories',price:22.99,stock:25,sales7:35,sales30:1050,bsr:78,acos:8.5,margin:33.7,rating:4.9,reviews:2103,platform:'de',status:'active'},
+  {sku:'SKU-DE-BT01',asin:'B0DEP00002',name:'Kabellose Bluetooth 5.3 Kopfhörer',brand:'SoundPro',category:'Electronics',price:27.99,stock:55,sales7:10,sales30:300,bsr:1500,acos:16.1,margin:18.9,rating:4.4,reviews:178,platform:'de',status:'active'},
+  {sku:'SKU-CA-BT01',asin:'B0CAP00001',name:'Wireless Bluetooth 5.3 Earbuds',brand:'SoundPro',category:'Electronics',price:39.99,stock:18,sales7:9,sales30:270,bsr:2100,acos:20.5,margin:15.2,rating:4.3,reviews:92,platform:'ca',status:'active'},
+];
+
+function renderProductsPage(ct){
+  let currentPlatform='us';
+  const currencySymbol=(pid)=>{const p=PLATFORMS.find(x=>x.id===pid);return p?p.currency:'$';};
+  const stockBadge=s=>s<=5?'<span style="background:var(--red-bg);color:var(--red);padding:1px 8px;border-radius:10px;font-size:11px;font-family:var(--fm)">🔴 '+s+'</span>':s<=15?'<span style="background:var(--gold-bg);color:var(--gold);padding:1px 8px;border-radius:10px;font-size:11px;font-family:var(--fm)">🟡 '+s+'</span>':'<span style="background:var(--cyan-bg);color:var(--cyan);padding:1px 8px;border-radius:10px;font-size:11px;font-family:var(--fm)">🟢 '+s+'</span>';
+  const marginBadge=m=>m<0?'<span style="color:var(--red);font-family:var(--fm);font-weight:600">'+m+'%</span>':m<15?'<span style="color:var(--gold);font-family:var(--fm);font-weight:600">'+m+'%</span>':'<span style="color:var(--cyan);font-family:var(--fm);font-weight:600">'+m+'%</span>';
+
+  const render=()=>{
+    const items=PRODUCT_MOCK.filter(p=>p.platform===currentPlatform);
+    const totalRev=items.reduce((s,p)=>s+p.price*p.sales30,0);
+    const lowStock=items.filter(p=>p.stock<=15).length;
+    const avgMargin=(items.reduce((s,p)=>s+p.margin,0)/items.length).toFixed(1);
+    const curSym=currencySymbol(currentPlatform);
+
+    document.getElementById('products-content').innerHTML=`
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-card" style="padding:14px"><div class="kpi-header"><span class="kpi-title">产品总数</span></div><div class="kpi-val ok">${items.length}</div><div class="kpi-lbl">SKU</div></div>
+        <div class="kpi-card" style="padding:14px"><div class="kpi-header"><span class="kpi-title">30天预估营收</span></div><div class="kpi-val">${curSym}${totalRev.toLocaleString()}</div><div class="kpi-lbl">${PLATFORMS.find(x=>x.id===currentPlatform)?.name}</div></div>
+        <div class="kpi-card" style="padding:14px"><div class="kpi-header"><span class="kpi-title">低库存预警</span></div><div class="kpi-val ${lowStock>0?'crit':'ok'}">${lowStock}</div><div class="kpi-lbl">库存≤15件</div></div>
+        <div class="kpi-card" style="padding:14px"><div class="kpi-header"><span class="kpi-title">平均毛利率</span></div><div class="kpi-val ${avgMargin<15?'warn':'ok'}">${avgMargin}%</div><div class="kpi-lbl">全站</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+        <input id="prod-search" placeholder="搜索 SKU / ASIN / 名称..." style="padding:8px 14px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:12px;width:280px;outline:none" oninput="renderProductsPage(document.getElementById('content'))">
+        <select id="prod-cat" style="padding:8px 12px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:12px;outline:none" onchange="renderProductsPage(document.getElementById('content'))">
+          <option value="">全部分类</option>
+          <option value="Electronics">Electronics</option><option value="Accessories">Accessories</option><option value="Home">Home</option><option value="Sports">Sports</option>
+        </select>
+        <span style="margin-left:auto;font-size:11px;color:var(--txt3)">${items.length} 个产品</span>
+      </div>
+      <div class="panel" style="overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--card);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--txt3)">
+            <th style="padding:10px 14px">SKU</th><th style="padding:10px 14px">ASIN</th><th style="padding:10px 14px">商品名称</th><th style="padding:10px 14px">分类</th><th style="padding:10px 14px;text-align:right">售价</th><th style="padding:10px 14px;text-align:center">库存</th><th style="padding:10px 14px;text-align:right">日销(7d)</th><th style="padding:10px 14px;text-align:right">月销(30d)</th><th style="padding:10px 14px;text-align:right">BSR</th><th style="padding:10px 14px;text-align:center">ACOS</th><th style="padding:10px 14px;text-align:right">毛利率</th><th style="padding:10px 14px;text-align:center">评分</th><th style="padding:10px 14px">操作</th>
+          </tr></thead>
+          <tbody>${items.map((p,i)=>{const cs=currencySymbol(p.platform);
+            return`<tr style="border-bottom:1px solid var(--bdr);${i%2?'background:var(--card)':''}" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background='${i%2?'var(--card)':'transparent'}'">
+            <td style="padding:10px 14px;font-family:var(--fm);font-size:11px">${p.sku}</td>
+            <td style="padding:10px 14px;font-family:var(--fm);font-size:11px;color:var(--blue)">${p.asin}</td>
+            <td style="padding:10px 14px"><b>${p.name}</b><br><span style="font-size:10px;color:var(--txt3)">${p.brand}</span></td>
+            <td style="padding:10px 14px"><span style="background:var(--bg);padding:2px 8px;border-radius:4px;font-size:10px">${p.category}</span></td>
+            <td style="padding:10px 14px;text-align:right;font-family:var(--fm)">${cs}${p.price}</td>
+            <td style="padding:10px 14px;text-align:center">${stockBadge(p.stock)}</td>
+            <td style="padding:10px 14px;text-align:right;font-family:var(--fm)">${p.sales7}</td>
+            <td style="padding:10px 14px;text-align:right;font-family:var(--fm)">${p.sales30}</td>
+            <td style="padding:10px 14px;text-align:right;font-family:var(--fm)">#${p.bsr.toLocaleString()}</td>
+            <td style="padding:10px 14px;text-align:center;font-family:var(--fm)">${p.acos}%</td>
+            <td style="padding:10px 14px;text-align:right">${marginBadge(p.margin)}</td>
+            <td style="padding:10px 14px;text-align:center">${'⭐'.repeat(Math.round(p.rating))} ${p.rating}<br><span style="font-size:9px;color:var(--txt3)">${p.reviews}评</span></td>
+            <td style="padding:10px 14px"><button class="btn sm" onclick="openProductDetail('${p.sku}','${p.asin}','${p.name.replace(/'/g,"\\'")}',${p.price},${p.stock},${p.sales7},${p.sales30},${p.bsr},${p.acos},${p.margin},${p.rating},${p.reviews},'${p.brand}','${p.category}','${p.status}')">详情</button></td>
+          </tr>`}).join('')}</tbody>
+        </table>
+      </div>`;
+  };
+
+  ct.innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:20px;border-bottom:1px solid var(--bdr);padding-bottom:0">
+      ${PLATFORMS.map(p=>`<button class="btn sm" id="tab-${p.id}" style="border-bottom:2px solid ${currentPlatform===p.id?'var(--gold)':'transparent'};border-radius:0;margin-bottom:-1px" onclick="currentPlatform='${p.id}';document.querySelectorAll('[id^=tab-]').forEach(e=>e.style.borderBottomColor='transparent');document.getElementById('tab-${p.id}').style.borderBottomColor='var(--gold)';renderProductsPage(document.getElementById('content'))">${p.flag} ${p.name}</button>`).join('')}
+      <span style="margin-left:auto;font-size:10px;color:var(--txt3);display:flex;align-items:center">Mock 数据 | 实时刷新</span>
+    </div>
+    <div id="products-content"></div>`;
+  render();
+}
+
+function openProductDetail(sku,asin,name,price,stock,sales7,sales30,bsr,acos,margin,rating,reviews,brand,category,status){
+  const stockHealth=stock<=5?'严重缺货':stock<=15?'库存偏低':stock>200?'库存充足':'正常';
+  const stockEmoji=stock<=5?'🔴':stock<=15?'🟡':'🟢';
+  const marginHealth=margin<10?'利润率严重偏低':margin<15?'利润率偏低':'健康';
+  const body=document.getElementById('alert-modal-body');
+  body.innerHTML=`
+    <button class="modal-close" onclick="closeAlertDetail()">✕</button>
+    <h2>${name}</h2>
+    <div class="modal-sub">${sku} | ${asin} | ${brand} | ${category}</div>
+    <div class="modal-section"><h3>销售数据</h3>
+      <table class="modal-table">
+        <tr><td>售价</td><td>$${price}</td><td>状态</td><td>${status}</td></tr>
+        <tr><td>日销(7天)</td><td>${sales7} 件</td><td>月销(30天)</td><td>${sales30} 件</td></tr>
+        <tr><td>BSR</td><td>#${bsr}</td><td>评分</td><td>${rating} ⭐ (${reviews} 评)</td></tr>
+      </table>
+    </div>
+    <div class="modal-section"><h3>库存与利润</h3>
+      <table class="modal-table">
+        <tr><td>库存</td><td>${stockEmoji} ${stock} 件 — ${stockHealth}</td><td>可售天数</td><td>${sales7>0?(stock/sales7).toFixed(1):'—'} 天</td></tr>
+        <tr><td>ACOS</td><td>${acos}%</td><td>毛利率</td><td>${margin}% — ${marginHealth}</td></tr>
+      </table>
+    </div>
+    <div class="modal-section"><h3>🤖 AI 建议</h3>
+      <div class="modal-ai"><span class="label ai">AI</span><br>
+        ${stock<=15?`<b>库存预警：</b>当前仅剩 ${stock} 件，按日均 ${sales7} 件计算，可售约 ${(stock/(sales7||1)).toFixed(1)} 天。建议立即评估补货需求。<br><br>`:''}
+        ${margin<15?`<b>利润优化：</b>毛利率 ${margin}% 偏低，建议检查广告 ACOS (${acos}%) 和退款率，优化广告投放效率。<br><br>`:''}
+        ${acos>25?`<b>广告异常：</b>ACOS ${acos}% 超出健康线，建议检查搜索词报告，暂停低转化关键词。<br><br>`:''}
+        ${stock>200&&margin>20?`<b>表现优异：</b>该产品库存充足，利润健康。可考虑适当增加广告预算以获取更多流量。`:''}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" onclick="navigate('inventory');closeAlertDetail()">查看库存分析</button>
+      <button class="btn" onclick="navigate('advertising');closeAlertDetail()">查看广告数据</button>
+      <button class="btn" onclick="closeAlertDetail()">关闭</button>
+    </div>`;
+  document.getElementById('alert-modal').classList.add('show');
+}
 async function renderReportPage(ct){
   ct.innerHTML=`<div style="text-align:center;color:var(--txt3);padding:40px">生成中...</div>`;
   try{const r=await fetch(API+'/agents/run',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({agent_name:'report',params:{}})});const d=await r.json();const res=d.result||{};

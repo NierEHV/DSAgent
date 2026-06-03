@@ -549,26 +549,66 @@ async function checkAll(){
 
 /* ══════════════════════════ SETTINGS ══════════════════════════ */
 const SET_SECTIONS=[
-  {id:'llm',title:'LLM 模型',fields:[{k:'provider',t:'select',l:'Provider',opts:'deepseek:DeepSeek,openai:OpenAI,claude:Claude,qwen:通义千问,glm:智谱GLM'},{k:'model',t:'input',l:'Model'},{k:'api_key',t:'password',l:'API Key',ph:'留空不修改'},{k:'base_url',t:'input',l:'Base URL'},{k:'max_tokens',t:'number',l:'Max Tokens'},{k:'temperature',t:'number',l:'Temperature'}]},
-  {id:'datasource',title:'数据源',fields:[]},
-  {id:'alerts',title:'告警阈值',section:'alert_rules',fields:[{k:'inventory.critical_days',t:'number',l:'库存严重不足(天)'},{k:'inventory.warning_days',t:'number',l:'库存偏低(天)'},{k:'inventory.excess_days',t:'number',l:'库存冗余(天)'},{k:'advertising.acos_spike_threshold',t:'number',l:'ACOS异常(%)'},{k:'advertising.acos_spike_ratio',t:'number',l:'ACOS飙升倍数'},{k:'advertising.budget_exhausted_pct',t:'number',l:'预算耗尽(%)'},{k:'profit.critical_margin',t:'number',l:'利润严重(%)'},{k:'profit.warning_margin',t:'number',l:'利润偏低(%)'},{k:'profit.refund_rate_critical',t:'number',l:'退款率异常(%)'}]},
-  {id:'notify',title:'通知渠道',section:'notify',fields:[{k:'dingtalk.enabled',t:'bool',l:'钉钉通知'},{k:'dingtalk.webhook',t:'input',l:'钉钉 Webhook URL'},{k:'dingtalk.at_users',t:'textarea',l:'@用户(逗号分隔)'},{k:'wecom.enabled',t:'bool',l:'企微通知'},{k:'wecom.webhook',t:'input',l:'企微 Webhook URL'}]},
-  {id:'monitor',title:'监控对象',section:'monitor',fields:[{k:'asins',t:'textarea',l:'监控 ASIN (每行一个)'},{k:'skus',t:'textarea',l:'监控 SKU (每行一个)'},{k:'keywords',t:'textarea',l:'关键词 (每行一个)'}]},
-  {id:'scheduler',title:'调度策略',section:'scheduler',fields:[{k:'interval_minutes',t:'number',l:'轮询间隔(分钟)'},{k:'enabled_agents',t:'textarea',l:'启用Agent(每行一个)'},{k:'working_hours_only',t:'bool',l:'仅工作时间运行'},{k:'auto_approve_low_risk',t:'bool',l:'低风险自动执行'}]},
-  {id:'storage',title:'存储',section:'storage',fields:[{k:'raw_retention_days',t:'number',l:'原始数据保留(天)'},{k:'snapshot_retention_days',t:'number',l:'快照保留(天)'}]},
-  {id:'ui',title:'界面',section:'ui',fields:[{k:'theme',t:'select',l:'主题',opts:'dark:深色,light:浅色'},{k:'language',t:'select',l:'语言',opts:'zh:中文,en:English'}]},
+  {id:'llm',title:'LLM 模型',desc:'配置 AI 大语言模型连接。支持 6 个主流 Provider，修改后即时生效。',icon:'🤖',fields:[
+    {k:'provider',t:'select',l:'服务商',opts:'deepseek:DeepSeek,openai:OpenAI,claude:Claude (Anthropic),qwen:通义千问,glm:智谱 GLM',hint:'选择你要使用的 AI 模型服务商'},
+    {k:'model',t:'input',l:'模型名称',ph:'deepseek-chat / gpt-4o / claude-sonnet-4-6',hint:'模型的准确名称，不同服务商的模型名不同'},
+    {k:'api_key',t:'password',l:'API Key',ph:'留空不修改现有密钥',hint:'密钥不会明文显示，留空则保持当前设置'},
+    {k:'base_url',t:'input',l:'Base URL (OpenAI 兼容地址)',hint:'DeepSeek/千问/GLM 等 OpenAI 兼容服务需填写此字段'},
+    {k:'max_tokens',t:'number',l:'最大输出 Token',hint:'控制 AI 回复的最大长度'},
+    {k:'temperature',t:'number',l:'Temperature (0-2)',hint:'越低越稳定精确，越高越有创意。分析类建议 0.3'},
+  ]},
+  {id:'datasource',title:'数据源',desc:'管理外部数据连接。支持 MCP 协议和 REST API 两种类型，可运行时热切换。',icon:'📡',fields:[]},
+  {id:'alerts',title:'告警阈值',desc:'设定各维度告警触发条件。修改后立即影响下一次巡检。',icon:'🔔',section:'alert_rules',fields:[
+    {k:'inventory.critical_days',t:'number',l:'库存严重不足 (天)',hint:'FBA 可售天数低于此值触发严重告警'},
+    {k:'inventory.warning_days',t:'number',l:'库存偏低 (天)',hint:'FBA 可售天数低于此值触发预警'},
+    {k:'inventory.excess_days',t:'number',l:'库存冗余 (天)',hint:'FBA 可售天数超过此值触发冗余提醒'},
+    {k:'advertising.acos_spike_threshold',t:'number',l:'ACOS 异常阈值 (%)',hint:'ACOS 超过此值判定为异常'},
+    {k:'advertising.acos_spike_ratio',t:'number',l:'ACOS 飙升倍数',hint:'当前 ACOS / 14天均值超过此倍数判定为飙升'},
+    {k:'advertising.budget_exhausted_pct',t:'number',l:'预算耗尽预警 (%)',hint:'预算使用率超过此百分比触发预警'},
+    {k:'profit.critical_margin',t:'number',l:'利润严重偏低 (%)',hint:'毛利率低于此值触发严重告警'},
+    {k:'profit.warning_margin',t:'number',l:'利润偏低 (%)',hint:'毛利率低于此值触发预警'},
+    {k:'profit.refund_rate_critical',t:'number',l:'退款率异常 (%)',hint:'退款率高于此值触发严重告警'},
+  ]},
+  {id:'notify',title:'通知渠道',desc:'配置钉钉/企微等通知推送。告警产生时将自动推送到已启用的渠道。',icon:'📢',section:'notify',fields:[
+    {k:'dingtalk.enabled',t:'bool',l:'启用钉钉通知',hint:'开启后将向指定钉钉群推送告警消息'},
+    {k:'dingtalk.webhook',t:'input',l:'钉钉机器人 Webhook URL',hint:'在钉钉群设置 → 智能群助手 → 添加机器人 → 复制 Webhook'},
+    {k:'dingtalk.at_users',t:'textarea',l:'@提醒用户 (逗号或换行分隔)',hint:'推送消息时会 @ 这些用户'},
+    {k:'wecom.enabled',t:'bool',l:'启用企业微信通知',hint:'开启后将向指定企微群推送告警消息'},
+    {k:'wecom.webhook',t:'input',l:'企微机器人 Webhook URL',hint:'在企微群设置 → 群机器人 → 添加 → 复制 Webhook'},
+  ]},
+  {id:'monitor',title:'监控对象',desc:'设置需要监控的产品和关键词。Agent 会基于这些对象进行巡检。',icon:'🎯',section:'monitor',fields:[
+    {k:'asins',t:'textarea',l:'监控 ASIN (每行一个)',hint:'系统会检查这些 ASIN 的 Buy Box、跟卖、BSR 变化'},
+    {k:'skus',t:'textarea',l:'监控 SKU (每行一个)',hint:'系统会检查这些 SKU 的 FBA 库存和销售数据'},
+    {k:'keywords',t:'textarea',l:'竞品发现关键词 (每行一个)',hint:'竞品发现 Agent 会基于这些关键词自动搜索竞品'},
+  ]},
+  {id:'scheduler',title:'调度策略',desc:'设置定时巡检的频率和范围。',icon:'⏱',section:'scheduler',fields:[
+    {k:'interval_minutes',t:'number',l:'轮询间隔 (分钟)',hint:'建议 5-15 分钟，过短可能触发 API 频率限制'},
+    {k:'enabled_agents',t:'textarea',l:'启用 Agent (每行一个)',hint:'可选: inventory, advertising, competitor, profit'},
+    {k:'working_hours_only',t:'bool',l:'仅工作时间运行',hint:'开启后只在 09:00-18:00 执行定时巡检'},
+    {k:'auto_approve_low_risk',t:'bool',l:'低风险操作自动执行',hint:'通知/日志等低风险操作无需人工审批'},
+  ]},
+  {id:'storage',title:'存储策略',desc:'管理数据保留时间。过期数据将自动清理。',icon:'💾',section:'storage',fields:[
+    {k:'raw_retention_days',t:'number',l:'原始数据保留 (天)',hint:'从外部 API 拉取的原始响应，用于审计回溯'},
+    {k:'snapshot_retention_days',t:'number',l:'快照保留 (天)',hint:'标准化后的数据快照，用于趋势对比。建议保留 30-90 天'},
+  ]},
+  {id:'ui',title:'界面设置',desc:'调整前端显示偏好。',icon:'🎨',section:'ui',fields:[
+    {k:'theme',t:'select',l:'默认主题',opts:'dark:深色模式,light:浅色模式',hint:'用户可随时在顶栏切换'},
+    {k:'language',t:'select',l:'界面语言',opts:'zh:简体中文,en:English',hint:'翻译仍在完善中'},
+  ]},
 ];
 
 function renderSettings(ct){
   const sec=SET_SECTIONS.find(s=>s.id===currentSetting);
+  const extraNav=[{id:'prompts',icon:'📝',label:'Prompt 管理'},{id:'rag',icon:'📚',label:'知识库'},{id:'n8n',icon:'⚡',label:'n8n 工作流'}];
   ct.innerHTML=`
     <div class="settings-layout">
-      <div class="settings-sidebar">${SET_SECTIONS.map(s=>`<button class="set-nav-item ${s.id===currentSetting?'active':''}" onclick="currentSetting='${s.id}';renderSettings(document.getElementById('content'))">${s.title}</button>`).join('')}
-        <button class="set-nav-item ${currentSetting==='prompts'?'active':''}" onclick="currentSetting='prompts';renderSettings(document.getElementById('content'))">Prompt 管理</button>
-        <button class="set-nav-item ${currentSetting==='rag'?'active':''}" onclick="currentSetting='rag';renderSettings(document.getElementById('content'))">知识库</button>
-        <button class="set-nav-item ${currentSetting==='n8n'?'active':''}" onclick="currentSetting='n8n';renderSettings(document.getElementById('content'))">n8n 工作流</button>
+      <div class="settings-sidebar">
+        <div style="padding:8px 12px;margin-bottom:4px"><input id="set-search" placeholder="🔍 搜索设置..." style="width:100%;padding:6px 10px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:11px;outline:none" oninput="filterSettingsSidebar()"></div>
+        ${SET_SECTIONS.map(s=>`<button class="set-nav-item ${s.id===currentSetting?'active':''}" data-set-id="${s.id}" onclick="currentSetting='${s.id}';renderSettings(document.getElementById('content'))"><span style="margin-right:6px">${s.icon}</span>${s.title}</button>`).join('')}
+        <div style="margin:12px 0 4px;padding-left:12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--txt3);font-weight:600">更多</div>
+        ${extraNav.map(e=>`<button class="set-nav-item ${currentSetting===e.id?'active':''}" data-set-id="${e.id}" onclick="currentSetting='${e.id}';renderSettings(document.getElementById('content'))"><span style="margin-right:6px">${e.icon}</span>${e.label}</button>`).join('')}
       </div>
-      <div class="settings-content" id="settings-content">${buildSettingsForm(sec)}</div>
+      <div class="settings-content" id="settings-content">${buildSettingsPage(sec)}</div>
     </div>`;
   loadConfigIntoForm();
   if(currentSetting==='prompts'){setTimeout(loadPrompts,200);}
@@ -576,42 +616,106 @@ function renderSettings(ct){
   if(currentSetting==='n8n'){setTimeout(checkN8NHealth,200);}
 }
 
-function buildSettingsForm(sec){
-  if(!sec||!sec.fields){
-    if(currentSetting==='datasource')return buildDatasourceForm();
-    if(currentSetting==='prompts')return buildPromptsForm();
-    if(currentSetting==='rag')return buildRAGForm();
-    if(currentSetting==='n8n')return buildN8NForm();
-    return '';
-  }
-  let h=`<h2 class="set-title">${sec.title}</h2>`;
-  for(const f of sec.fields){
-    const fid='cfg-'+f.k.replace(/\./g,'-');
-    if(f.t==='select')h+=`<div class="form-group"><label>${f.l}</label><select id="${fid}">${(f.opts||'').split(',').map(o=>{const[v,l]=o.split(':');return`<option value="${v}">${l||v}</option>`}).join('')}</select></div>`;
-    else if(f.t==='bool')h+=`<div class="form-check"><input type="checkbox" id="${fid}"><label>${f.l}</label></div>`;
-    else if(f.t==='textarea')h+=`<div class="form-group"><label>${f.l}</label><textarea id="${fid}" rows="3"></textarea></div>`;
-    else if(f.t==='password')h+=`<div class="form-group"><label>${f.l}</label><input type="password" id="${fid}" placeholder="${f.ph||'留空不修改'}"></div>`;
-    else h+=`<div class="form-group"><label>${f.l}</label><input type="${f.t||'text'}" id="${fid}"></div>`;
-  }
-  h+=`<div class="form-actions"><button class="btn primary" onclick="saveSettings()">💾 保存</button><button class="btn" onclick="reloadCfg()">🔄 重载配置</button></div>`;
-  return h;
+function filterSettingsSidebar(){
+  const q=document.getElementById('set-search').value.toLowerCase();
+  document.querySelectorAll('.set-nav-item[data-set-id]').forEach(e=>{e.style.display=(e.textContent||'').toLowerCase().includes(q)?'':'none';});
 }
 
-function buildDatasourceForm(){
-  let h=`<h2 class="set-title">数据源</h2><div class="config-list" id="ds-list"></div>`;
-  h+=`<div class="form-group"><label>名称</label><select id="cfg-ds-name"><option value="sellersprite">卖家精灵</option><option value="sorftime">Sorftime</option><option value="lingxing">领星 ERP</option></select></div>`;
-  h+=`<div class="form-group"><label>URL</label><input id="cfg-ds-url"></div>`;
-  h+=`<div class="form-group"><label>Secret Key</label><input id="cfg-ds-key" type="password" placeholder="留空不修改"></div>`;
-  h+=`<div class="form-actions"><button class="btn primary" onclick="saveDS()">保存数据源</button></div>`;
-  setTimeout(async()=>{try{configData=await(await fetch(API+'/config',{headers:authHeaders()})).json();document.getElementById('ds-list').innerHTML=(configData.datasources||[]).map(ds=>`<div class="config-item"><span class="name">${ds.name} <span style="font-size:10px;color:var(--txt3)">${ds.type||''}</span></span><span style="font-size:10px;color:${ds.health==='connected'?'var(--cyan)':'var(--txt3)'}">${ds.health||'unknown'}</span></div>`).join('');}catch(e){}},200);
-  return h;
+function buildSettingsPage(sec){
+  if(!sec||!sec.fields){return buildCustomPage(currentSetting);}
+  let cards='';
+  // Group fields: first 3 → "基本设置", rest → "高级设置"
+  const basic=sec.fields.slice(0,4),advanced=sec.fields.slice(4);
+  cards+=buildSettingCard('基本设置',basic);
+  if(advanced.length)cards+=buildSettingCard('高级设置',advanced);
+
+  return `
+    <div style="position:sticky;top:0;background:var(--bg);z-index:5;display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;margin-bottom:24px;border-bottom:1px solid var(--bdr)">
+      <div><h2 class="set-title">${sec.icon} ${sec.title}</h2><p style="font-size:12px;color:var(--txt3);margin-top:4px">${sec.desc||''}</p></div>
+      <div style="display:flex;gap:8px"><button class="btn primary" onclick="saveSettings()">💾 保存更改</button><button class="btn" onclick="reloadCfg()">重置</button></div>
+    </div>
+    <div id="save-toast" style="display:none;position:fixed;top:20px;right:20px;background:var(--cyan);color:#fff;padding:12px 20px;border-radius:var(--rs);font-size:13px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.3)"></div>
+    ${cards}`;
 }
 
-function buildPromptsForm(){return `<h2 class="set-title">Prompt 管理</h2><div class="form-group"><label>选择 Prompt</label><select id="prompt-select" onchange="loadPrompt()"></select></div><div class="form-group"><label>内容</label><textarea id="prompt-content" rows="14" style="font-size:12px"></textarea></div><div class="form-actions"><button class="btn primary" onclick="savePrompt()">💾 保存</button></div>`;}
+function buildSettingCard(title,fields){
+  if(!fields.length)return '';
+  return `<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+    <h3 style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--txt)">${title}</h3>
+    ${fields.map(f=>buildField(f)).join('')}
+  </div>`;
+}
 
-function buildRAGForm(){return `<h2 class="set-title">知识库</h2><div class="form-group"><label>标题</label><input id="rag-title"></div><div class="form-group"><label>内容</label><textarea id="rag-content" rows="8"></textarea></div><div class="form-actions"><button class="btn primary" onclick="uploadRAG()">上传文档</button></div><div class="config-list" id="rag-list" style="margin-top:16px"></div>`;}
+function buildField(f){
+  const fid='cfg-'+f.k.replace(/\./g,'-');
+  let inner='';
+  if(f.t==='select')inner=`<select id="${fid}">${(f.opts||'').split(',').map(o=>{const[v,l]=o.split(':');return`<option value="${v}">${l||v}</option>`}).join('')}</select>`;
+  else if(f.t==='bool')inner=`<div class="form-check"><input type="checkbox" id="${fid}"><label>${f.l}</label></div>`;
+  else if(f.t==='textarea')inner=`<textarea id="${fid}" rows="3"></textarea>`;
+  else if(f.t==='password')inner=`<input type="password" id="${fid}" placeholder="${f.ph||'留空不修改'}">`;
+  else inner=`<input type="${f.t||'text'}" id="${fid}"${f.ph?` placeholder="${f.ph}"`:''}>`;
+  return `<div class="form-group">${f.t!=='bool'?`<label>${f.l}</label>`:''}${inner}${f.hint?`<div class="form-hint">${f.hint}</div>`:''}</div>`;
+}
 
-function buildN8NForm(){return `<h2 class="set-title">n8n 工作流引擎</h2><div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><span class="pill"><span class="dot" id="n8n-dot" style="background:var(--txt3)"></span></span><span id="n8n-status-text">检测中...</span><button class="btn sm" onclick="checkN8NHealth()">⟳ 刷新</button></div><div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn primary" onclick="loadN8NWorkflows()">加载工作流</button><button class="btn" onclick="importN8NShopify()">导入 Shopify</button></div><div class="form-group"><label>Webhook 路径</label><input id="n8n-webhook-path" placeholder="如 restock-alert"></div><div class="form-group"><label>数据 (JSON)</label><textarea id="n8n-data" rows="3" placeholder='{"sku":"CHG001","qty":500}'></textarea></div><div class="form-actions"><button class="btn primary" onclick="triggerN8N()">▶ 触发执行</button><button class="btn" onclick="triggerN8NAlert()">🔔 模拟告警</button></div><div class="config-list" id="n8n-wf-list" style="margin-top:12px"></div><button class="btn sm" style="margin-top:8px" onclick="loadN8NExecs()">📋 执行历史</button><div class="config-list" id="n8n-exec-list" style="margin-top:6px"></div>`;}
+function buildCustomPage(id){
+  let title='',desc='',cards='';
+  if(id==='datasource'){
+    title='📡 数据源';desc='管理外部数据连接。支持 MCP 协议和 REST API 两种类型。';
+    cards=`
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+        <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">已连接数据源</h3>
+        <div class="config-list" id="ds-list" style="margin-bottom:16px"></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+        <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">添加数据源</h3>
+        <div class="form-group"><label>服务</label><select id="cfg-ds-name"><option value="sellersprite">卖家精灵 (MCP SSE, 42 工具)</option><option value="sorftime">Sorftime (MCP HTTP, 34+ 工具)</option><option value="lingxing">领星 ERP (REST API)</option></select></div>
+        <div class="form-group"><label>URL</label><input id="cfg-ds-url" placeholder="${id==='sellersprite'?'https://mcp.sellersprite.com/sse':'https://mcp.sorftime.com'}"></div>
+        <div class="form-group"><label>Secret Key / API Key</label><input id="cfg-ds-key" type="password" placeholder="留空不修改"><div class="form-hint">连接密钥，用于认证</div></div>
+        <div class="form-actions"><button class="btn primary" onclick="saveDS()">保存数据源</button></div>
+      </div>`;
+    setTimeout(async()=>{try{configData=await(await fetch(API+'/config',{headers:authHeaders()})).json();document.getElementById('ds-list').innerHTML=(configData.datasources||[]).map(ds=>`<div class="config-item"><div><span class="name">${ds.name}</span><span style="font-size:10px;color:var(--txt3);margin-left:8px">${ds.type||''}</span></div><span style="font-size:10px;color:${ds.health==='connected'?'var(--cyan)':'var(--txt3)'}">${ds.health||'unknown'}</span></div>`).join('')||'暂无数据源';}catch(e){}},200);
+  }else if(id==='prompts'){
+    title='📝 Prompt 管理';desc='编辑 AI 分析提示词模板。修改后下次分析即时生效。';
+    cards=`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px">
+      <div class="form-group"><label>选择模板</label><select id="prompt-select" onchange="loadPrompt()"></select></div>
+      <div class="form-group"><label>Prompt 内容 <span style="color:var(--txt3);font-weight:400;text-transform:none;letter-spacing:0">— 支持 Markdown</span></label><textarea id="prompt-content" rows="14" style="font-size:11px;font-family:var(--fm)"></textarea></div>
+      <div class="form-actions"><button class="btn primary" onclick="savePrompt()">💾 保存 Prompt</button></div></div>`;
+  }else if(id==='rag'){
+    title='📚 知识库';desc='上传公司 SOP、操作手册等文档。Agent 在分析时自动检索相关知识。';
+    cards=`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+      <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">上传文档</h3>
+      <div class="form-group"><label>标题</label><input id="rag-title" placeholder="例如：补货标准操作流程"></div>
+      <div class="form-group"><label>内容</label><textarea id="rag-content" rows="8" placeholder="将 SOP 文档内容粘贴到这里..."></textarea></div>
+      <div class="form-actions"><button class="btn primary" onclick="uploadRAG()">上传到知识库</button></div></div>
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px"><h3 style="font-size:13px;font-weight:600;margin-bottom:16px">已有文档</h3><div class="config-list" id="rag-list"></div></div>`;
+  }else if(id==='n8n'){
+    title='⚡ n8n 工作流引擎';desc='管理 n8n 工作流集成。触发工作流后 n8n 执行编排逻辑，回调 Agent API。';
+    cards=`
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+        <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">连接状态</h3>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span class="pill"><span class="dot" id="n8n-dot" style="background:var(--txt3)"></span></span><span id="n8n-status-text">检测中...</span><button class="btn sm" onclick="checkN8NHealth()">⟳ 刷新</button></div>
+        <div class="form-hint">n8n 默认地址: http://localhost:5678。启动命令: docker-compose --profile full up -d n8n</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+        <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">工作流管理</h3>
+        <div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn primary" onclick="loadN8NWorkflows()">加载工作流</button><button class="btn" onclick="importN8NShopify()">导入 Shopify 工作流</button></div>
+        <div class="config-list" id="n8n-wf-list" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px;margin-bottom:16px">
+        <h3 style="font-size:13px;font-weight:600;margin-bottom:16px">手动触发</h3>
+        <div class="form-group"><label>Webhook 路径</label><input id="n8n-webhook-path" placeholder="例如 restock-alert"><div class="form-hint">对应 n8n Webhook 节点的路径</div></div>
+        <div class="form-group"><label>数据 (JSON)</label><textarea id="n8n-data" rows="3" placeholder='{"sku":"CHG001","qty":500}'></textarea></div>
+        <div class="form-actions"><button class="btn primary" onclick="triggerN8N()">▶ 触发执行</button><button class="btn" onclick="triggerN8NAlert()">🔔 模拟告警</button></div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:20px 24px"><h3 style="font-size:13px;font-weight:600;margin-bottom:16px">执行历史</h3><button class="btn sm" style="margin-bottom:8px" onclick="loadN8NExecs()">刷新</button><div class="config-list" id="n8n-exec-list"></div></div>`;
+  }
+  return `
+    <div style="position:sticky;top:0;background:var(--bg);z-index:5;display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;margin-bottom:24px;border-bottom:1px solid var(--bdr)">
+      <div><h2 class="set-title">${title}</h2><p style="font-size:12px;color:var(--txt3);margin-top:4px">${desc}</p></div>
+    </div>
+    <div id="save-toast" style="display:none;position:fixed;top:20px;right:20px;background:var(--cyan);color:#fff;padding:12px 20px;border-radius:var(--rs);font-size:13px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.3)"></div>
+    ${cards}`;
+}
 
 /* ══════════════════════════ SETTINGS LOGIC ══════════════════════════ */
 async function loadConfigIntoForm(){
@@ -638,13 +742,14 @@ function getFormData(){
     const keys=f.k.split('.');if(keys.length===1)data[keys[0]]=val;else{let obj=data;for(let i=0;i<keys.length-1;i++){if(!obj[keys[i]])obj[keys[i]]={};obj=obj[keys[i]];}obj[keys[keys.length-1]]=val;}
   }return data;
 }
+function showToast(msg,isErr){const t=document.getElementById('save-toast');if(!t)return;t.style.display='block';t.style.background=isErr?'var(--red)':'var(--cyan)';t.textContent=msg;setTimeout(()=>{t.style.display='none'},2500);}
 async function saveSettings(){
   const section=SET_SECTIONS.find(s=>s.id===currentSetting)?.section||currentSetting;
-  try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section,data:getFormData()})});alert('已保存');}catch(e){alert(e.message);}
+  try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section,data:getFormData()})});showToast('✅ 设置已保存，已即时生效');}catch(e){showToast('❌ 保存失败: '+e.message,true);}
 }
 async function saveDS(){
   const n=document.getElementById('cfg-ds-name').value,u=document.getElementById('cfg-ds-url').value,k=document.getElementById('cfg-ds-key').value;
-  try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section:'datasource',data:{name:n,url:u,secret_key:k,enabled:true}})});alert('已保存');renderSettings(document.getElementById('content'));}catch(e){alert(e.message);}
+  try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section:'datasource',data:{name:n,url:u,secret_key:k,enabled:true}})});showToast('✅ 数据源已保存');renderSettings(document.getElementById('content'));}catch(e){showToast('❌ '+e.message,true);}
 }
 async function reloadCfg(){try{await fetch(API+'/config/reload',{method:'POST',headers:authHeaders()});location.reload();}catch(e){}}
 async function loadPrompts(){const sel=document.getElementById('prompt-select');if(!sel)return;sel.innerHTML='';try{const r=await fetch(API+'/prompts');const d=await r.json();const prompts=d.prompts||{};for(const[cat,items]of Object.entries(prompts)){if(typeof items==='object')for(const[name]of Object.entries(items)){const opt=document.createElement('option');opt.value=cat+'/'+name;opt.textContent=cat+'/'+name;sel.appendChild(opt);}}if(sel.options.length)loadPrompt();}catch(e){}}

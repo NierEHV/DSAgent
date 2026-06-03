@@ -122,6 +122,18 @@ a{color:var(--blue);text-decoration:none}
 .login-box input:focus{border-color:var(--gold)}
 .login-box .btn{width:100%;margin-top:4px}
 .login-err{color:var(--red);font-size:11px;margin-top:8px}
+/* Alert Detail Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s,visibility .25s}
+.modal-overlay.show{opacity:1;visibility:visible}
+.modal-box{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);width:640px;max-height:85vh;overflow-y:auto;padding:28px}
+.modal-box h2{font-size:18px;margin-bottom:4px}.modal-box .modal-sub{font-size:11px;color:var(--txt3);margin-bottom:16px}
+.modal-close{float:right;background:none;border:none;font-size:18px;cursor:pointer;color:var(--txt3)}
+.modal-section{margin-bottom:20px}.modal-section h3{font-size:12px;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;color:var(--txt2)}
+.modal-table{width:100%;font-size:11px;border-collapse:collapse}.modal-table td{padding:6px 10px;border-bottom:1px solid var(--bdr)}.modal-table td:first-child{color:var(--txt3);width:100px}.modal-table td:last-child{font-family:var(--fm)}
+.modal-ai{background:var(--card);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px;font-size:12px;line-height:1.7;color:var(--txt2)}
+.modal-ai .label{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin-bottom:8px}.modal-ai .label.ai{background:var(--gold-bg);color:var(--gold)}
+.modal-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.modal-actions .btn{padding:9px 20px;font-size:12px}
 </style></head><body>
 
 <div id="app">
@@ -146,6 +158,9 @@ a{color:var(--blue);text-decoration:none}
   <div class="content" id="content"></div>
 </div>
 </div>
+
+<!-- Alert Detail Modal -->
+<div class="modal-overlay" id="alert-modal"><div class="modal-box" id="alert-modal-body"></div></div>
 
 <!-- Login -->
 <div class="login-overlay" id="login-overlay">
@@ -238,7 +253,7 @@ function renderKPI(key,result,agent){
   badge.textContent=isCrit?'异常':isWarn?'关注':'正常';
   document.getElementById('stats-'+key).innerHTML=buildKPIMetrics(s,key);
   let h='';
-  for(const a of alerts.slice(0,4)){const cls=a.level==='critical'?'crit':'warn';h+=`<div class="kpi-item ${cls}"><div class="head"><span>${a.emoji||''} ${a.msku||a.campaign||a.asin||a.sku||''}</span></div>${a.detail||''}${a.suggestion?`<div class="sug">💡 ${a.suggestion}</div>`:''}</div>`;if(!allAlerts.find(x=>x.id===a.msku+a.campaign+a.asin+a.sku+a.detail))allAlerts.push({id:a.msku||a.campaign||a.asin||a.sku||Date.now(),type:key,level:a.level,title:a.detail||'',suggestion:a.suggestion||'',emoji:a.emoji||''});}
+  for(const a of alerts.slice(0,4)){const cls=a.level==='critical'?'crit':'warn';const aid=a.msku||a.campaign||a.asin||a.sku||Date.now();h+=`<div class="kpi-item ${cls}"><div class="head"><span>${a.emoji||''} ${a.msku||a.campaign||a.asin||a.sku||''}</span><button class="btn sm" style="padding:1px 6px;font-size:9px" onclick="event.stopPropagation();openAlertDetail('${aid}')">查看 →</button></div>${a.detail||''}${a.suggestion?`<div class="sug">💡 ${a.suggestion}</div>`:''}</div>`;if(!allAlerts.find(x=>x.id===aid))allAlerts.push({id:aid,type:key,level:a.level,title:a.detail||'',suggestion:a.suggestion||'',emoji:a.emoji||'',fba_stock:a.fba_stock,days_of_stock:a.days_of_stock,asin:a.asin||a.sku});}
   if(!h)h='<div style="text-align:center;color:var(--txt3);padding:8px">✅ 一切正常</div>';
   document.getElementById('detail-'+key).innerHTML=h;
   document.getElementById('source-'+key).innerHTML=`Mock 模式 | ⏱ ${result.duration_ms||0}ms`;
@@ -253,9 +268,86 @@ function renderAlertPanel(){
   const list=document.getElementById('alert-list');if(!list)return;
   document.getElementById('alert-count').textContent=`${active.length} 条`;
   if(!active.length){list.innerHTML='<div style="text-align:center;color:var(--txt3);padding:20px">✅ 无告警</div>';return;}
-  list.innerHTML=active.slice(0,10).map(a=>`<div class="alert-row ${a.level}"><span>${a.emoji||''}</span><div class="alert-msg"><b>[${({inventory:'库存',advertising:'广告',profit:'利润',competitor:'跟卖'}[a.type]||a.type)}]</b> ${a.title||''}</div><div class="alert-actions">${a.suggestion&&role!=='viewer'?`<button class="btn sm primary" onclick="decide('${a.id}','approved')">批准</button>`:''}${role!=='viewer'?`<button class="btn sm" onclick="decide('${a.id}','rejected')">忽略</button>`:''}</div></div>`).join('');
+  list.innerHTML=active.slice(0,10).map(a=>`<div class="alert-row ${a.level}"><span>${a.emoji||''}</span><div class="alert-msg"><b>[${({inventory:'库存',advertising:'广告',profit:'利润',competitor:'跟卖'}[a.type]||a.type)}]</b> ${a.title||''}</div><div class="alert-actions"><button class="btn sm primary" onclick="openAlertDetail('${a.id}')">查看</button></div></div>`).join('');
 }
-async function decide(id,dec){try{await fetch(API+'/decisions/record',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({alert_id:id,decision:dec})});const a=allAlerts.find(x=>x.id===id);if(a)a.resolved=true;renderAlertPanel();}catch(e){}}
+async function decide(id,dec){try{await fetch(API+'/decisions/record',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({alert_id:id,decision:dec})});const a=allAlerts.find(x=>x.id===id);if(a)a.resolved=true;renderAlertPanel();closeAlertDetail();}catch(e){}}
+
+/* ══════════════════════════ ALERT DETAIL MODAL ══════════════════════════ */
+function openAlertDetail(alertId){
+  const a=allAlerts.find(x=>x.id===alertId);if(!a)return;
+  const type=a.type,level=a.level,emoji=a.emoji||'';
+  const typeLabel={inventory:'库存预警',advertising:'广告分析',profit:'利润分析',competitor:'跟卖监控'}[type]||type;
+
+  // 不同类型的不同操作按钮
+  const actionSets={
+    inventory:[
+      {label:'创建补货计划',dec:'approved',cls:'primary'},
+      {label:'调整安全库存',dec:'approved',cls:''},
+      {label:'标记已处理',dec:'rejected',cls:''},
+      {label:'忽略',dec:'rejected',cls:''}
+    ],
+    advertising:[
+      {label:'降低出价10%',dec:'approved',cls:'primary'},
+      {label:'暂停高花费关键词',dec:'approved',cls:'primary'},
+      {label:'追加预算',dec:'approved',cls:''},
+      {label:'忽略',dec:'rejected',cls:''}
+    ],
+    profit:[
+      {label:'检查退款原因',dec:'approved',cls:'primary'},
+      {label:'优化广告效率',dec:'approved',cls:''},
+      {label:'调整定价策略',dec:'approved',cls:''},
+      {label:'忽略',dec:'rejected',cls:''}
+    ],
+    competitor:[
+      {label:'调价匹配竞品',dec:'approved',cls:'primary'},
+      {label:'发起投诉',dec:'approved',cls:'danger'},
+      {label:'Test Buy验证',dec:'approved',cls:'danger'},
+      {label:'持续监控',dec:'rejected',cls:''},
+      {label:'忽略',dec:'rejected',cls:''}
+    ],
+  };
+  const actions=actionSets[type]||[{label:'标记已处理',dec:'rejected',cls:''},{label:'忽略',dec:'rejected',cls:''}];
+
+  // AI 分析内容 (根据类型生成)
+  const aiAnalysis={
+    inventory:`<b>库存分析</b><br><br>
+该 SKU 当前库存量已触发严重缺货阈值。根据近 7 天日均销量和当前在途库存，预计 <b>${a.days_of_stock||'?'} 天</b>后将断货。<br><br>
+<b>根因推断：</b>近期销量波动导致库存消耗速度超出预期，在途补货尚未入库。<br><br>
+<b>建议操作：</b>立即创建补货计划，建议数量覆盖未来 30 天销量 + 安全库存缓冲。同时检查是否有竞品断货导致流量涌入的短期效应。`,
+    advertising:`<b>广告分析</b><br><br>
+该广告活动 ACOS 已超出合理范围，且对比 14 天均值有明显飙升。<br><br>
+<b>根因推断：</b>可能原因为竞品提高出价导致 CPC 上升，或部分关键词转化率下降。<br><br>
+<b>建议操作：</b>下载搜索词报告，暂停高花费低转化关键词；降低出价 10-15%；检查 Listing 转化率是否下降。`,
+    profit:`<b>利润分析</b><br><br>
+该 SKU 毛利率已跌破健康线。可能原因包括退款率上升、广告费占比过高、或 FBA 费率调整。<br><br>
+<b>根因推断：</b>建议逐一排查退款原因（产品描述是否准确？）、广告 ACOS 是否异常、近期是否有 FBA 费率变更。<br><br>
+<b>建议操作：</b>优先检查退款原因和广告效率，再考虑是否调整定价。`,
+    competitor:`<b>竞品威胁分析</b><br><br>
+检测到 Buy Box 状态变更或新卖家出现。需评估该竞品是否为恶意跟卖还是正常市场竞争。<br><br>
+<b>威胁评估：</b>检查该卖家的账号年龄、评分、价格偏离度。如为新账号+低价+低评分，高度疑似恶意跟卖。<br><br>
+<b>建议操作：</b>优先尝试 Test Buy 取证，确认后发起投诉。同时检查我方 Listing 是否有优化空间以提升转化率。`,
+  };
+
+  const body=document.getElementById('alert-modal-body');
+  body.innerHTML=`
+    <button class="modal-close" onclick="closeAlertDetail()">✕</button>
+    <h2>${emoji} ${typeLabel} — ${a.title||'告警详情'}</h2>
+    <div class="modal-sub">${a.source||'Mock 模式'} | ${level==='critical'?'🔴 严重':'🟡 预警'} | ${new Date().toLocaleTimeString()}</div>
+    <div class="modal-section"><h3>数据快照</h3>
+      <table class="modal-table">
+        ${a.data?Object.entries(a.data).slice(0,8).map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join(''):'<tr><td colspan="2" style="color:var(--txt3)">详细数据加载中...</td></tr>'}
+      </table>
+    </div>
+    <div class="modal-section"><h3>🤖 AI 分析</h3>
+      <div class="modal-ai"><span class="label ai">AI</span><br>${aiAnalysis[type]||'暂无AI分析，请配置LLM后重试。'}</div>
+    </div>
+    <div class="modal-section"><h3>操作</h3>
+      <div class="modal-actions">${actions.map(ac=>`<button class="btn ${ac.cls||''}" onclick="decide('${alertId}','${ac.dec}')">${ac.label}</button>`).join('')}</div>
+    </div>`;
+  document.getElementById('alert-modal').classList.add('show');
+}
+function closeAlertDetail(){document.getElementById('alert-modal').classList.remove('show');}
+document.getElementById('alert-modal').addEventListener('click',function(e){if(e.target===this)closeAlertDetail();});
 function clearAlerts(){allAlerts=allAlerts.filter(a=>!a.resolved);renderAlertPanel();}
 async function loadSystemLogs(){
   const list=document.getElementById('log-list');if(!list)return;
@@ -270,7 +362,7 @@ async function renderAgentPage(ct,agent){
   try{const r=await fetch(API+'/agents/run',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({agent_name:agent,params:{}})});const d=await r.json();const res=d.result||{};
     const s=res.summary||{},alerts=res.alerts||res.anomalies||res.threats||[],status=res.status||'ok';
     let h=`<div class="kpi-card ${status==='critical'||status==='threat'?'crit':status==='warning'?'warn':''}" style="margin-bottom:20px"><div class="kpi-header"><span class="kpi-title">📊 分析结果</span><span class="kpi-badge ${status==='critical'||status==='threat'?'crit':status==='warning'?'warn':'ok'}">${status.toUpperCase()}</span></div><div class="kpi-metrics">${buildKPIMetrics(s,agent)}</div></div>`;
-    if(alerts.length)h+=`<div class="panel" style="margin-bottom:20px"><div class="panel-header">⚠️ 告警 (${alerts.length}条)</div><div class="panel-body">${alerts.map(a=>`<div class="alert-row ${a.level==='critical'?'crit':'warn'}"><span>${a.emoji||''}</span><div class="alert-msg"><b>${a.msku||a.campaign||a.asin||a.sku||''}</b>: ${a.detail||''}<br><span style="color:var(--cyan);font-size:11px">💡 ${a.suggestion||''}</span></div></div>`).join('')}</div></div>`;
+    if(alerts.length)h+=`<div class="panel" style="margin-bottom:20px"><div class="panel-header">⚠️ 告警 (${alerts.length}条)</div><div class="panel-body">${alerts.map(a=>`<div class="alert-row ${a.level==='critical'?'crit':'warn'}"><span>${a.emoji||''}</span><div class="alert-msg"><b>${a.msku||a.campaign||a.asin||a.sku||''}</b>: ${a.detail||''}<br><span style="color:var(--cyan);font-size:11px">💡 ${a.suggestion||''}</span></div><div class="alert-actions"><button class="btn sm primary" onclick="openAlertDetail('${a.msku||a.campaign||a.asin||a.sku||a.id}')">查看</button></div></div>`).join('')}</div></div>`;
     if(res.markdown)h+=`<div class="panel"><div class="panel-header">📋 报告</div><div class="panel-body"><pre style="white-space:pre-wrap;font-size:12px;line-height:1.7">${res.markdown}</pre></div></div>`;
     h+=`<div style="text-align:center;color:var(--txt3);padding:12px">⏱ ${res.duration_ms||0}ms</div>`;
     ct.innerHTML=h;

@@ -1,0 +1,147 @@
+{
+  "name": "ad_analysis_workflow",
+  "description": "广告日报工作流 — 每日分析广告表现，检测ACOS异常，生成优化建议",
+  "trigger_type": "scheduled",
+  "trigger_config": {
+    "type": "cron",
+    "expression": "0 8 * * *",
+    "description": "每天早上8点执行"
+  },
+  "nodes": [
+    {
+      "id": "node_001",
+      "name": "拉取广告活动列表",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_ad_campaigns",
+        "params": {},
+        "description": "获取所有广告活动"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 100]
+    },
+    {
+      "id": "node_002",
+      "name": "拉取今日广告表现",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_ad_performance_today",
+        "params": {},
+        "description": "获取今日广告数据 + 14天对比"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 250]
+    },
+    {
+      "id": "node_003",
+      "name": "拉取预算状态",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_budget_status",
+        "params": {},
+        "description": "检查广告预算消耗状态"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 400]
+    },
+    {
+      "id": "node_004",
+      "name": "LLM广告分析",
+      "type": "llm_call",
+      "config": {
+        "prompt": "你是亚马逊广告优化专家。请分析以下广告数据：\n\n今日表现：{ad_performance}\n预算状态：{budget_status}\n\n请执行：\n1. 识别ACOS异常(baseline 25%)，对比14天趋势\n2. 检测预算提前耗尽风险\n3. 发现高花费低转化关键词\n4. 给出3条可执行优化建议\n\n以JSON格式输出，包含：anomalies(异常列表), optimizations(优化建议), summary(一句话总结)",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 60000,
+      "position": [550, 250]
+    },
+    {
+      "id": "node_005",
+      "name": "判断是否有异常",
+      "type": "condition",
+      "config": {
+        "condition": "llm_analysis.anomalies.length > 0",
+        "true_branch": "node_006",
+        "false_branch": "node_007"
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [800, 250]
+    },
+    {
+      "id": "node_006",
+      "name": "生成异常告警通知",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "📢 广告日报 — {date}\n\n## 整体表现\n- 花费: ${total_spend} | 销售额: ${total_sales}\n- ACOS: {overall_acos}% | ROAS: {overall_roas}x\n\n## ⚠️ 异常告警\n{anomaly_details}\n\n## 💡 优化建议\n{optimizations}",
+        "at_users": ["@广告运营"]
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [1050, 200]
+    },
+    {
+      "id": "node_007",
+      "name": "推送常规日报",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "📢 广告日报 — {date}\n\n## 整体表现\n- 花费: ${total_spend} | 销售额: ${total_sales}\n- ACOS: {overall_acos}% | ROAS: {overall_roas}x\n- 总订单: {total_orders}\n\n✅ 所有广告活动正常。",
+        "at_users": []
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [1050, 350]
+    },
+    {
+      "id": "node_008",
+      "name": "记录广告数据快照",
+      "type": "output",
+      "config": {
+        "save_to_db": true,
+        "update_dashboard": true
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [1300, 250]
+    }
+  ],
+  "connections": {
+    "node_001": ["node_004"],
+    "node_002": ["node_004"],
+    "node_003": ["node_004"],
+    "node_004": ["node_005"],
+    "node_005": ["node_006", "node_007"],
+    "node_006": ["node_008"],
+    "node_007": ["node_008"]
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "retryOnFail": true,
+    "retryCount": 3,
+    "maxExecutions": 100,
+    "saveManualExecutions": true
+  },
+  "tags": ["advertising", "report", "daily"],
+  "meta": {
+    "version": "1.0.0",
+    "category": "advertising",
+    "status": "active",
+    "priority": "high",
+    "environment": "production"
+  }
+}

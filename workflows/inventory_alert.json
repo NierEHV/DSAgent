@@ -1,0 +1,172 @@
+{
+  "name": "inventory_alert_workflow",
+  "description": "FBA库存预警工作流 — 定时检查库存健康度，自动发现低库存/冗余库存并推送预警",
+  "trigger_type": "scheduled",
+  "trigger_config": {
+    "type": "cron",
+    "expression": "0 */4 * * *",
+    "description": "每4小时执行一次"
+  },
+  "nodes": [
+    {
+      "id": "node_001",
+      "name": "拉取FBA库存",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_fba_inventory",
+        "params": {},
+        "description": "从领星ERP拉取所有SKU的FBA库存数据"
+      },
+      "risk_level": 0,
+      "retry_count": 3,
+      "timeout_ms": 30000,
+      "position": [300, 100]
+    },
+    {
+      "id": "node_002",
+      "name": "拉取销量数据",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_sales_data",
+        "params": {
+          "days": 7
+        },
+        "description": "拉取近7天日均销量"
+      },
+      "risk_level": 0,
+      "retry_count": 3,
+      "timeout_ms": 30000,
+      "position": [300, 250]
+    },
+    {
+      "id": "node_003",
+      "name": "拉取在途库存",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_inbound_shipments",
+        "params": {},
+        "description": "查询在途/待入库的FBA发货计划"
+      },
+      "risk_level": 0,
+      "retry_count": 3,
+      "timeout_ms": 30000,
+      "position": [300, 400]
+    },
+    {
+      "id": "node_004",
+      "name": "LLM库存健康度分析",
+      "type": "llm_call",
+      "config": {
+        "prompt": "你是一个亚马逊库存管理专家。请分析以下库存数据，评估每个SKU的库存健康度。\n\nFBA库存数据：{fba_inventory}\n近7天日均销量：{sales_data}\n在途库存：{inbound_data}\n\n对每个SKU计算：\n1. 可售天数 = FBA库存 / 日均销量\n2. 健康状态：正常(15-90天) / 低库存(7-14天) / 严重缺货(<7天) / 冗余(>90天)\n3. 建议补货日期\n4. 是否需要告警\n\n以JSON格式输出，包含 alert_required, alert_level, alert_message 字段。",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 60000,
+      "position": [550, 250]
+    },
+    {
+      "id": "node_005",
+      "name": "判断是否需要告警",
+      "type": "condition",
+      "config": {
+        "condition": "llm_result.alert_required == true",
+        "true_branch": "node_006",
+        "false_branch": "node_009"
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [800, 250]
+    },
+    {
+      "id": "node_006",
+      "name": "生成预警报告",
+      "type": "llm_call",
+      "config": {
+        "prompt": "基于库存分析结果，生成一份简洁的预警报告：\n\n分析结果：{llm_analysis}\n\n报告格式（Markdown）：\n## 📦 库存预警报告 — {date}\n### 🔴 严重缺货（< 7天）\n- SKU1: xxx（可售N天）→ 建议立即补货\n\n### 🟡 低库存（7-14天）\n- SKU2: xxx（可售N天）→ 建议本周补货\n\n### ⚠️ 冗余库存（> 90天）\n- SKU3: xxx（可售N天）→ 建议清货\n\n### 📊 汇总\n- 正常SKU: N个\n- 预警SKU: N个\n- 缺货SKU: N个",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 2048
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 45000,
+      "position": [1050, 200]
+    },
+    {
+      "id": "node_007",
+      "name": "推送告警通知",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "{alert_report}",
+        "at_users": ["@运营主管"]
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [1300, 200]
+    },
+    {
+      "id": "node_008",
+      "name": "自动补货建议审批",
+      "type": "human_review",
+      "config": {
+        "approval": {
+          "title": "库存补货审批",
+          "description": "AI建议对以下SKU创建补货计划，请审批",
+          "channel": "dingtalk",
+          "timeout_minutes": 120,
+          "actions": ["approve", "reject", "modify"]
+        }
+      },
+      "risk_level": 3,
+      "retry_count": 1,
+      "timeout_ms": 7200000,
+      "position": [1550, 200]
+    },
+    {
+      "id": "node_009",
+      "name": "记录结果",
+      "type": "output",
+      "config": {
+        "save_to_db": true,
+        "update_dashboard": true
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [1550, 350]
+    }
+  ],
+  "connections": {
+    "node_001": ["node_004"],
+    "node_002": ["node_004"],
+    "node_003": ["node_004"],
+    "node_004": ["node_005"],
+    "node_005": ["node_006", "node_009"],
+    "node_006": ["node_007"],
+    "node_007": ["node_008"],
+    "node_008": ["node_009"]
+  },
+  "settings": {
+    "executionTimeout": 7200,
+    "retryOnFail": true,
+    "retryCount": 3,
+    "maxExecutions": 100,
+    "saveManualExecutions": true,
+    "timeoutWorkflow": true
+  },
+  "tags": ["inventory", "alert", "FBA", "daily"],
+  "meta": {
+    "version": "1.0.0",
+    "category": "inventory",
+    "status": "active",
+    "priority": "high",
+    "environment": "production",
+    "owner": "dsagent-team",
+    "created_at": "2026-06-02T00:00:00",
+    "updated_at": "2026-06-02T00:00:00"
+  }
+}

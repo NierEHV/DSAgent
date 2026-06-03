@@ -1,0 +1,99 @@
+# DS Agent 部署方案
+#
+# 精简部署 (仅 Agent API, 内置 Mock 数据):
+#   docker-compose up -d
+#
+# 完整部署 (含 n8n + Redis + ChromaDB):
+#   docker-compose --profile full up -d
+#
+# 含独立 MCP Server:
+#   docker-compose --profile mcp up -d
+
+services:
+  # ═══════════════════════════════════════
+  # Agent API — 核心服务 (必选)
+  # ═══════════════════════════════════════
+  agent-api:
+    build: .
+    container_name: ds-agent-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MOCK_MODE=${MOCK_MODE:-true}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - DINGTALK_WEBHOOK=${DINGTALK_WEBHOOK:-}
+      - WECOM_WEBHOOK=${WECOM_WEBHOOK:-}
+    volumes:
+      - dsagent_data:/app/data
+      # 挂载源码和工作流以便热更新 (开发时取消注释)
+      # - ./src:/app/src:ro
+      # - ./workflows:/app/workflows:ro
+    restart: unless-stopped
+    networks:
+      - dsagent-net
+
+  # ═══════════════════════════════════════
+  # n8n 工作流引擎 (可选, --profile full)
+  # ═══════════════════════════════════════
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: ds-agent-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://n8n:5678/
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflows:/backup/workflows:ro
+    restart: unless-stopped
+    networks:
+      - dsagent-net
+    profiles:
+      - full
+
+  # ═══════════════════════════════════════
+  # Redis 缓存 (可选, --profile full)
+  # ═══════════════════════════════════════
+  redis:
+    image: redis:7-alpine
+    container_name: ds-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - dsagent-net
+    profiles:
+      - full
+
+  # ═══════════════════════════════════════
+  # ChromaDB 向量库 (可选, --profile full)
+  # ═══════════════════════════════════════
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: ds-agent-chromadb
+    ports:
+      - "8004:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    restart: unless-stopped
+    networks:
+      - dsagent-net
+    profiles:
+      - full
+
+volumes:
+  dsagent_data:
+  n8n_data:
+  redis_data:
+  chroma_data:
+
+networks:
+  dsagent-net:
+    driver: bridge

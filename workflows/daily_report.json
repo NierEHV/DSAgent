@@ -1,0 +1,156 @@
+{
+  "name": "report_generation_workflow",
+  "description": "运营日报工作流 — 每天早上汇总全店核心指标，生成日报推送管理层",
+  "trigger_type": "scheduled",
+  "trigger_config": {
+    "type": "cron",
+    "expression": "0 9 * * *",
+    "description": "每天早上9点执行"
+  },
+  "nodes": [
+    {
+      "id": "node_001",
+      "name": "拉取订单/销售额数据",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_profit_report",
+        "params": {
+          "start_date": "yesterday",
+          "end_date": "today"
+        },
+        "description": "获取昨日利润+销售汇总"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 30000,
+      "position": [300, 100]
+    },
+    {
+      "id": "node_002",
+      "name": "拉取FBA库存数据",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_fba_inventory",
+        "params": {},
+        "description": "获取全店FBA库存"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 30000,
+      "position": [300, 200]
+    },
+    {
+      "id": "node_003",
+      "name": "拉取销量数据",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_sales_data",
+        "params": {
+          "days": 7
+        },
+        "description": "获取近7天日均销量用于计算库存天数"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 30000,
+      "position": [300, 300]
+    },
+    {
+      "id": "node_004",
+      "name": "拉取广告表现",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_ad_performance_today",
+        "params": {},
+        "description": "获取昨日广告数据"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 400]
+    },
+    {
+      "id": "node_005",
+      "name": "拉取Buy Box状态",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_buy_box",
+        "params": {
+          "asin_list": ["B09XYZ0001", "B07DEF5678", "B08ABC1234", "B05GHI9012"]
+        },
+        "description": "获取核心ASIN的Buy Box持有状态"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 500]
+    },
+    {
+      "id": "node_006",
+      "name": "LLM日报生成",
+      "type": "llm_call",
+      "config": {
+        "prompt": "你是亚马逊运营总监。请基于以下数据生成一份专业运营日报：\n\n销售利润：{profit_data}\nFBA库存：{inventory_data}\n销量趋势：{sales_trend}\n广告表现：{ad_performance}\nBuy Box：{buy_box_data}\n\n日报格式（Markdown）：\n## 📊 运营日报 — {date}\n\n### 📈 销售概览\n- 昨日销售额 vs 前日 vs 上周同期\n- 订单数 / 件数 / 客单价\n\n### 💰 利润分析\n- 毛利 / 毛利率 / 退款金额\n- 广告费占比\n\n### 📢 广告\n- 花费 / 销售额 / ACOS / ROAS\n- 异常Campaign\n\n### 📦 库存健康\n- 缺货预警(可售<7天)\n- 低库存(7-14天)\n- 冗余(>90天)\n\n### 🔍 竞品动态\n- Buy Box持有率\n- 价格异常\n- BSR变化\n\n### ⚠️ 今日需要关注\n- 列出Top3需要运营关注的事项\n\n### 💡 AI建议\n- 给出2-3条可执行的优化建议",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 90000,
+      "position": [550, 300]
+    },
+    {
+      "id": "node_007",
+      "name": "推送日报到管理层",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "{daily_report}",
+        "at_users": []
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [800, 300]
+    },
+    {
+      "id": "node_008",
+      "name": "保存日报 + 更新Dashboard",
+      "type": "output",
+      "config": {
+        "save_to_db": true,
+        "update_dashboard": true,
+        "export_excel": true,
+        "upload_to_s3": true
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 10000,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "node_001": ["node_006"],
+    "node_002": ["node_006"],
+    "node_003": ["node_006"],
+    "node_004": ["node_006"],
+    "node_005": ["node_006"],
+    "node_006": ["node_007"],
+    "node_007": ["node_008"]
+  },
+  "settings": {
+    "executionTimeout": 600,
+    "retryOnFail": true,
+    "retryCount": 2,
+    "maxExecutions": 100,
+    "saveManualExecutions": true
+  },
+  "tags": ["report", "daily", "summary", "management"],
+  "meta": {
+    "version": "1.0.0",
+    "category": "report",
+    "status": "active",
+    "priority": "high",
+    "environment": "production"
+  }
+}

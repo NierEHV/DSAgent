@@ -1,0 +1,324 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>DS Agent v3.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Share+Tech+Mono&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<style>
+:root{--bg:#06090f;--surf:#0d1117;--card:#141b24;--elev:#1a2330;--bdr:#1e2a38;--bdr2:#2a3a50;--gold:#f0b429;--gold-g:#ffe08a;--cyan:#0ae2b0;--red:#ff4d5a;--blue:#4dabf7;--txt:#e3e6eb;--muted:#7d8b9e;--dim:#4a5568;--r:10px;--rs:6px;--f:'DM Sans',sans-serif;--fh:'Rajdhani',sans-serif;--fm:'Share Tech Mono',monospace;--t:.25s cubic-bezier(.4,0,.2,1)}
+[data-theme="light"]{--bg:#f5f6f8;--surf:#fff;--card:#f0f2f5;--elev:#e8eaef;--bdr:#dde0e5;--bdr2:#c8cdd5;--txt:#1a1d24;--muted:#5a6070;--dim:#999faa}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:var(--f);background:var(--bg);color:var(--txt)}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px}
+body{display:flex;flex-direction:column}
+/* Login */
+.login-page{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000}
+.login-box{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:32px;width:360px;text-align:center}
+.login-box h1{font-family:var(--fh);font-size:24px;margin-bottom:4px}.login-box h1 span{color:var(--gold)}
+.login-box .sub{font-size:11px;color:var(--dim);margin-bottom:20px}
+.login-box input{width:100%;padding:10px 14px;margin-bottom:10px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:14px;outline:none}
+.login-box input:focus{border-color:var(--gold)}
+.login-box .btn{width:100%;padding:10px;background:var(--gold);color:#1a1a1a;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer}
+.login-box .err{color:var(--red);font-size:12px;margin-top:8px}
+/* Topbar */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surf);border-bottom:1px solid var(--bdr);min-height:46px;z-index:10}
+.logo{font-family:var(--fh);font-size:17px;font-weight:700}.logo span{color:var(--gold)}
+.top-right{display:flex;align-items:center;gap:6px}
+.user-info{font-size:11px;color:var(--muted);margin-right:4px}
+.btn{padding:5px 12px;border:1px solid var(--bdr);border-radius:var(--rs);background:transparent;color:var(--muted);cursor:pointer;font-size:10px;font-family:var(--f);transition:var(--t)}
+.btn:hover{background:var(--card);color:var(--txt);border-color:var(--bdr2)}
+.btn.prim{background:var(--gold);color:#1a1a1a;border-color:var(--gold);font-weight:600}
+.btn.prim:hover{background:var(--gold-g)}
+.btn.danger{background:var(--red);color:#fff;border-color:var(--red)}.btn.danger:hover{opacity:.9}
+.status{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.status-dot{width:5px;height:5px;border-radius:50%}.status-dot.online{background:var(--cyan);box-shadow:0 0 5px rgba(10,226,176,.5)}.status-dot.mock{background:var(--gold)}
+/* Grid */
+.grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:8px;padding:10px}
+@media(max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;overflow:hidden;transition:var(--t)}
+.card.crit{border-color:rgba(255,77,90,.5);box-shadow:0 0 14px rgba(255,77,90,.05)}
+.card.warn{border-color:rgba(240,180,41,.4)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.card-title{font-family:var(--fh);font-size:13px;font-weight:600}
+.card-badge{font-size:8px;padding:2px 6px;border-radius:7px;font-family:var(--fm)}
+.badge-crit{background:rgba(255,77,90,.15);color:var(--red)}.badge-warn{background:rgba(240,180,41,.15);color:var(--gold)}.badge-ok{background:rgba(10,226,176,.1);color:var(--cyan)}
+.card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:5px}
+.stat{text-align:center;padding:3px 2px;background:var(--surf);border-radius:var(--rs)}
+.stat .val{font-family:var(--fm);font-size:16px;font-weight:600}
+.stat .val.crit{color:var(--red)}.stat .val.warn{color:var(--gold)}.stat .val.ok{color:var(--cyan)}
+.stat .lbl{font-size:7px;color:var(--dim);margin-top:1px;text-transform:uppercase}
+.card-detail{flex:1;overflow-y:auto;font-size:9px;line-height:1.4;color:var(--muted)}
+.card-detail .item{margin-bottom:4px;padding:4px 6px;background:var(--surf);border-radius:var(--rs)}
+.card-detail .item.crit{border-left:2px solid var(--red)}.card-detail .item.warn{border-left:2px solid var(--gold)}
+.card-detail .item .head{font-weight:600;color:var(--txt)}.card-detail .item .sug{color:var(--cyan);margin-top:1px}
+.card-source{font-size:8px;color:var(--dim);margin-top:5px;padding-top:5px;border-top:1px solid var(--bdr)}
+/* Alert panel */
+.alert-panel{background:var(--surf);border-top:1px solid var(--bdr);padding:6px 14px;max-height:140px;overflow-y:auto}
+.alert-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.alert-title{font-family:var(--fh);font-size:12px;font-weight:600}
+.alert-list{display:flex;flex-direction:column;gap:3px}
+.alert-item{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--card);border-radius:var(--rs);font-size:10px}
+.alert-item.crit{border-left:2px solid var(--red)}.alert-item.warn{border-left:2px solid var(--gold)}
+.alert-item .msg{flex:1}
+.alert-btn{padding:2px 8px;border-radius:var(--rs);border:1px solid var(--bdr);font-size:9px;cursor:pointer;font-family:var(--f);background:transparent;color:var(--muted)}
+.alert-btn.approve{background:rgba(10,226,176,.1);color:var(--cyan);border-color:rgba(10,226,176,.3)}.alert-btn.approve:hover{background:var(--cyan);color:var(--bg)}
+.alert-btn.reject:hover{background:var(--red);color:#fff;border-color:var(--red)}
+.loading{display:flex;align-items:center;justify-content:center;padding:14px;color:var(--muted);font-size:10px}
+.spin{width:14px;height:14px;border:2px solid var(--bdr);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin-right:5px}@keyframes spin{to{transform:rotate(360deg)}}
+/* Listing tab */
+.listing-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.listing-panel.active{display:flex}
+.listing-form{padding:14px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:center}
+.listing-form input{padding:8px 12px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:12px;outline:none;width:200px}
+.listing-form input:focus{border-color:var(--gold)}
+.listing-result{flex:1;overflow-y:auto;padding:14px;font-size:12px;line-height:1.7;white-space:pre-wrap}
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:100;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s}
+.modal-overlay.show{opacity:1;visibility:visible}
+.modal{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);width:680px;max-height:85vh;overflow-y:auto;padding:18px}
+.modal h2{font-family:var(--fh);font-size:15px;margin-bottom:10px}
+.modal-close{float:right;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer}
+.modal .tabs{display:flex;flex-wrap:wrap;gap:1px;margin-bottom:12px;border-bottom:1px solid var(--bdr);padding-bottom:3px}
+.modal .tab{padding:4px 8px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;font-family:var(--f);border-bottom:2px solid transparent;white-space:nowrap}
+.modal .tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.modal .tab-content{display:none}.modal .tab-content.active{display:block}
+.fg{margin-bottom:8px}.fg label{display:block;font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select,.fg textarea{width:100%;padding:6px 8px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:11px;font-family:var(--f);outline:none}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--gold)}
+.fg textarea{resize:vertical;font-family:var(--fm);min-height:60px}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.fg-chk{display:flex;align-items:center;gap:5px;margin-bottom:5px}.fg-chk input[type=checkbox]{width:auto}.fg-chk label{font-size:10px;color:var(--txt);text-transform:none;letter-spacing:0}
+.btn-row{display:flex;gap:5px;margin-top:10px}
+.ds-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:var(--bg);border-radius:var(--rs);font-size:10px;margin-bottom:3px}
+.ds-name{font-weight:600}.ds-status{font-size:8px}.ds-status.on{color:var(--cyan)}.ds-status.err{color:var(--red)}.ds-status.off{color:var(--dim)}
+#main-ui{display:none}.main-ui-visible{display:flex!important;flex:1;flex-direction:column}
+</style></head><body>
+
+<!-- Login -->
+<div class="login-page" id="login-page">
+<div class="login-box"><h1>DS<span>Agent</span></h1><div class="sub">v3.1 — AI 运营指挥中心</div>
+<input id="login-user" placeholder="用户名" value="admin" onkeypress="if(event.key==='Enter')doLogin()">
+<input id="login-pass" type="password" placeholder="密码" value="admin123" onkeypress="if(event.key==='Enter')doLogin()">
+<button class="btn" onclick="doLogin()">登 录</button><div class="err" id="login-err"></div></div>
+</div>
+
+<!-- Main UI (hidden until login) -->
+<div id="main-ui">
+<div class="topbar"><div class="logo">DS<span>Agent</span> <span style="font-size:8px;color:var(--dim);margin-left:2px">v3.1</span></div>
+<div class="top-right"><div class="user-info" id="user-info"></div>
+<div class="status"><span class="status-dot" id="api-dot"></span><span id="api-text"></span></div>
+<button class="btn" onclick="switchView('dashboard')" id="nav-dashboard">📊 大屏</button>
+<button class="btn" onclick="switchView('listing')" id="nav-listing">📋 Listing</button>
+<button class="btn" onclick="openSettings()" id="nav-settings">⚙ 设置</button>
+<button class="btn danger" onclick="checkAll()">▶ 巡检</button>
+<button class="btn" onclick="toggleTheme()" id="theme-btn" title="切换明暗主题">🌙</button><button class="btn" onclick="doLogout()">退出</button></div></div>
+
+<!-- Dashboard -->
+<div id="view-dashboard" style="flex:1;display:flex;flex-direction:column">
+<div class="grid" id="grid"></div>
+<div class="alert-panel"><div class="alert-header"><span class="alert-title" id="alert-count">⚠️ 告警</span>
+<div style="display:flex;gap:4px"><button class="btn" onclick="toggleLogs()">📋 日志</button><button class="btn" onclick="clearAlerts()">清空</button></div></div>
+<div class="alert-list" id="alert-list"><div class="loading"><div class="spin"></div>等待巡检</div></div></div>
+<div id="log-panel" style="display:none;background:var(--surf);border-top:1px solid var(--bdr);padding:6px 14px;max-height:140px;overflow-y:auto"><div style="font-family:var(--fh);font-size:12px;margin-bottom:4px">📋 日志</div><div id="log-list" style="font-size:8px;font-family:var(--fm);line-height:1.7;color:var(--muted)">加载中...</div></div>
+</div>
+
+<!-- Listing -->
+<div id="view-listing" class="listing-panel"><div class="listing-form">
+<input id="listing-asin" placeholder="输入 ASIN (如 B09XYZ0001)">
+<select id="listing-action" style="padding:6px 8px;background:var(--bg);border:1px solid var(--bdr);border-radius:var(--rs);color:var(--txt);font-size:11px"><option value="query">查询详情</option><option value="optimize">AI 优化</option><option value="compare">竞品对比</option></select>
+<button class="btn prim" onclick="runListing()">执行</button></div>
+<div class="listing-result" id="listing-result"><div style="color:var(--dim);text-align:center;padding:40px">输入 ASIN 并选择操作</div></div></div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-modal"><div class="modal">
+<button class="modal-close" onclick="closeSettings()">✕</button><h2>⚙ 系统配置</h2>
+<div class="tabs" id="cfg-tabs"></div><div id="cfg-content"></div></div></div>
+
+<script>
+// ─── Globals ───
+const API='http://127.0.0.1:8000';
+let token='', role='', user='';
+const AGENTS=[{key:'inventory',icon:'📦',title:'库存'},{key:'advertising',icon:'📢',title:'广告'},{key:'profit',icon:'💰',title:'利润'},{key:'competitor',icon:'🔍',title:'跟卖'}];
+let allAlerts=[],configData={},activeSection='',refreshTimer=null,loggedIn=false;
+
+function authHeaders(){return token?{Authorization:'Bearer '+token}:{}}
+
+// ─── Theme ───
+function initTheme(){
+  const saved=localStorage.getItem('dsagent-theme');
+  const prefersDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+  const theme=saved||(prefersDark?'dark':'light');
+  applyTheme(theme);
+}
+function toggleTheme(){
+  const cur=document.documentElement.dataset.theme||'dark';
+  const next=cur==='dark'?'light':'dark';
+  applyTheme(next);localStorage.setItem('dsagent-theme',next);
+}
+function applyTheme(t){
+  document.documentElement.dataset.theme=t;
+  document.getElementById('theme-btn').textContent=t==='dark'?'🌙':'☀️';
+}
+initTheme();
+
+// ─── Login ───
+async function doLogin(){
+  const u=document.getElementById('login-user').value,p=document.getElementById('login-pass').value;
+  try{
+    const r=await fetch(API+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(d.access_token){token=d.access_token;role=d.role;user=d.username;
+      document.getElementById('login-page').style.display='none';
+      document.getElementById('main-ui').className='main-ui-visible';
+      document.getElementById('user-info').textContent=d.display_name+' ('+d.role+')';
+      applyPermissions();initDash();
+      if(!loggedIn){loggedIn=true;setInterval(refreshAll,5*60*1000);}
+      gsap.from('.topbar',{y:-20,opacity:0,duration:.4});
+    }else{document.getElementById('login-err').textContent=d.detail||'登录失败'}
+  }catch(e){document.getElementById('login-err').textContent='连接失败: '+e.message}
+}
+function doLogout(){token='';role='';location.reload();}
+function applyPermissions(){
+  if(role==='viewer'){document.querySelectorAll('#nav-settings,.btn.prim,.btn.danger').forEach(e=>e.style.display='none')}
+  // Admin-only elements handled per-element
+}
+
+// ─── Dashboard ───
+function initDash(){buildCards();checkHealth();refreshAll();}
+function buildCards(){document.getElementById('grid').innerHTML=AGENTS.map(a=>`<div class="card" id="card-${a.key}"><div class="card-header"><span><span class="card-icon">${a.icon}</span> <span class="card-title">${a.title}</span></span><span class="card-badge" id="badge-${a.key}">—</span></div><div class="card-stats" id="stats-${a.key}"></div><div class="card-detail" id="detail-${a.key}"><div class="loading"><div class="spin"></div>加载中</div></div><div class="card-source" id="source-${a.key}"></div></div>`).join('');}
+async function checkHealth(){try{const r=await fetch(API+'/health');const d=await r.json();document.getElementById('api-dot').className='status-dot '+(d.mock_mode?'mock':'online');document.getElementById('api-text').textContent=d.mock_mode?'Mock|已连接':'已连接';}catch(e){document.getElementById('api-dot').className='status-dot';document.getElementById('api-dot').style.background='var(--red)';document.getElementById('api-text').textContent='离线';}}
+async function refreshAll(){
+  for(const a of AGENTS){
+    try{const r=await fetch(API+'/agents/run',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({agent_name:a.key,params:{}})});renderCard(a.key,(await r.json()).result||{},a);}catch(e){setOffline(a.key,e.message);}
+  }
+}
+function renderCard(key,result,agent){
+  const card=document.getElementById('card-'+key);if(!card)return;
+  const s=result.summary||{},status=result.status||'ok',alerts=result.alerts||result.anomalies||result.threats||[],suggestions=result.suggestions||[];
+  const badge=document.getElementById('badge-'+key);
+  if(status==='critical'||status==='threat'||status==='alert'){card.className='card crit';badge.className='card-badge badge-crit';badge.textContent='异常'}
+  else if(status==='warning'||status==='anomaly'){card.className='card warn';badge.className='card-badge badge-warn';badge.textContent='关注'}
+  else{card.className='card';badge.className='card-badge badge-ok';badge.textContent='正常'}
+  document.getElementById('stats-'+key).innerHTML=buildStats(s,key);
+  let html='';
+  for(const a of alerts.slice(0,3)){const cls=a.level==='critical'?'crit':'warn';html+=`<div class="item ${cls}"><div class="head">${a.emoji||''} ${a.msku||a.campaign||a.asin||a.sku||''}</div>${a.detail||''}${a.suggestion?`<div class="sug">💡 ${a.suggestion}</div>`:''}</div>`;if(!allAlerts.find(x=>x.id===a.msku+a.campaign+a.asin+a.sku+a.detail))allAlerts.push({id:a.msku||a.campaign||a.asin||a.sku||Date.now(),type:key,level:a.level,title:a.detail||a.title||'',suggestion:a.suggestion||'',emoji:a.emoji||''});}
+  for(const s of suggestions.slice(0,2))html+=`<div class="item warn"><div class="head">💡 优化建议</div>${s.detail||''}<div class="sug">${s.suggestion||''}</div></div>`;
+  if(!html)html='<div style="color:var(--dim);text-align:center;padding:6px">✅ 正常</div>';
+  document.getElementById('detail-'+key).innerHTML=html;
+  document.getElementById('source-'+key).innerHTML=`<span style="font-size:8px;color:var(--dim)">Mock | ⏱ ${result.duration_ms||0}ms</span>`;
+  renderAlertPanel();gsap.from(card,{scale:.98,opacity:0,duration:.3});
+}
+function setOffline(key,err){document.getElementById('card-'+key).className='card';document.getElementById('card-'+key).style.opacity='.7';document.getElementById('detail-'+key).innerHTML=`<div style="color:var(--red);text-align:center;padding:6px">⚠️ ${err||''}</div>`;}
+function buildStats(s,key){
+  const m={inventory:[{k:'total_skus',l:'SKU'},{k:'healthy',l:'健康',c:'ok'},{k:'critical',l:'严重',c:'crit'}],advertising:[{k:'total_spend',l:'花费',fmt:v=>'$'+v},{k:'total_sales',l:'销售',fmt:v=>'$'+v},{k:'overall_acos',l:'ACOS',fmt:v=>v+'%'}],profit:[{k:'total_revenue',l:'营收',fmt:v=>'$'+v},{k:'total_profit',l:'毛利',fmt:v=>'$'+v},{k:'avg_margin',l:'毛利率',fmt:v=>v+'%'}],competitor:[{k:'total_asins',l:'ASIN'},{k:'buy_box_rate',l:'BuyBox',fmt:v=>v+'%'},{k:'critical',l:'威胁',c:'crit'}]}[key]||[];
+  return m.map(f=>{const v=s[f.k]!==undefined?s[f.k]:'—';return`<div class="stat"><div class="val ${f.c||''}">${f.fmt?f.fmt(v):v}</div><div class="lbl">${f.l}</div></div>`}).join('');
+}
+function renderAlertPanel(){
+  const active=allAlerts.filter(a=>!a.resolved);document.getElementById('alert-count').textContent='⚠️ 告警 ('+active.length+')';
+  if(!active.length){document.getElementById('alert-list').innerHTML='<div style="text-align:center;color:var(--dim);padding:8px">✅ 无告警</div>';return;}
+  document.getElementById('alert-list').innerHTML=active.slice(0,8).map(a=>`<div class="alert-item ${a.level}" id="alert-${a.id}"><span>${a.emoji||''}</span><span class="msg"><b>[${({inventory:'库存',advertising:'广告',profit:'利润',competitor:'跟卖',listing:'Listing'}[a.type]||a.type)}]</b> ${a.title||''}</span><div class="actions">${a.suggestion&&role!=='viewer'?`<button class="alert-btn approve" onclick="decide('${a.id}','approved')">批准</button>`:''}${role!=='viewer'?`<button class="alert-btn reject" onclick="decide('${a.id}','rejected')">忽略</button>`:''}</div></div>`).join('');
+}
+async function decide(id,dec){try{await fetch(API+'/decisions/record',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({alert_id:id,decision:dec})});const a=allAlerts.find(x=>x.id===id);if(a)a.resolved=true;renderAlertPanel();}catch(e){}}
+function clearAlerts(){allAlerts=allAlerts.filter(a=>!a.resolved);renderAlertPanel();}
+async function checkAll(){document.getElementById('alert-list').innerHTML='<div class="loading"><div class="spin"></div>巡检中</div>';try{await fetch(API+'/monitor/check-all',{method:'POST',headers:authHeaders()});}catch(e){}setTimeout(refreshAll,2000);}
+async function toggleLogs(){const p=document.getElementById('log-panel');if(p.style.display==='none'){p.style.display='block';try{const r=await fetch(API+'/logs?lines=50');const d=await r.json();document.getElementById('log-list').innerHTML=(d.logs||[]).map(l=>`<div>${({inventory:'📦',advertising:'📢',competitor:'🔍',profit:'💰',decision:'✍️'}[l.type]||'')} ${l.time?l.time.substring(11,19):''} ${l.source||''} ${l.items||l.decision||''}</div>`).join('')||'暂无';}catch(e){}}else p.style.display='none';}
+
+// ─── Listing ───
+function switchView(v){
+  const dash=document.getElementById('view-dashboard'),list=document.getElementById('view-listing');
+  dash.style.display=v==='dashboard'?'flex':'none';
+  list.style.display=v==='listing'?'flex':'none';
+  document.querySelectorAll('#nav-dashboard,#nav-listing').forEach(e=>e.classList.remove('prim'));
+  const navBtn=document.getElementById('nav-'+v);if(navBtn)navBtn.classList.add('prim');
+}
+async function runListing(){
+  const asin=document.getElementById('listing-asin').value.trim(),action=document.getElementById('listing-action').value;
+  if(!asin)return;
+  document.getElementById('listing-result').innerHTML='<div class="loading"><div class="spin"></div>分析中</div>';
+  try{const r=await fetch(API+'/agents/run',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({agent_name:'listing',params:{asin,action}})});const d=await r.json();const res=d.result||d;
+    let html=`<h3>📋 ${asin} — ${action==='query'?'详情':action==='optimize'?'AI优化':'竞品对比'}</h3>`;
+    if(res.products)res.products.forEach(p=>{html+=`<p><b>SKU:</b> ${p.sku} | <b>品牌:</b> ${p.brand||'N/A'} | <b>价格:</b> $${p.price} | <b>类目:</b> ${p.category||'N/A'}</p>`});
+    if(res.optimization?.analysis)html+=`<div style="margin-top:10px;white-space:pre-wrap">${res.optimization.analysis}</div>`;
+    else if(res.optimization?.message)html+=`<p style="color:var(--dim)">${res.optimization.message}</p>`;
+    html+=`<p style="color:var(--dim);margin-top:8px">⏱ ${res.duration_ms||0}ms</p>`;
+    document.getElementById('listing-result').innerHTML=html;
+  }catch(e){document.getElementById('listing-result').innerHTML='<div style="color:var(--red)">'+e.message+'</div>';}
+}
+
+// ─── Settings ───
+const CFG_SECTIONS=[
+  {id:'llm',label:'🤖 LLM',fields:[{k:'provider',t:'select',l:'Provider',opts:'deepseek:DeepSeek,openai:OpenAI,claude:Claude,qwen:通义千问,glm:智谱GLM,custom:自定义'},{k:'model',t:'input',l:'Model',ph:'deepseek-chat'},{k:'api_key',t:'password',l:'API Key',ph:'留空不修改'},{k:'base_url',t:'input',l:'Base URL'},{k:'max_tokens',t:'number',l:'Max Tokens'},{k:'temperature',t:'number',l:'Temperature'}]},
+  {id:'datasource',label:'📡 数据源',custom:true},
+  {id:'alert_rules',label:'🔔 告警',fields:[{k:'inventory.critical_days',t:'number',l:'库存严重(天)'},{k:'inventory.warning_days',t:'number',l:'库存偏低(天)'},{k:'inventory.excess_days',t:'number',l:'库存冗余(天)'},{k:'advertising.acos_spike_threshold',t:'number',l:'ACOS异常(%)'},{k:'advertising.acos_spike_ratio',t:'number',l:'ACOS飙升倍数'},{k:'advertising.budget_exhausted_pct',t:'number',l:'预算耗尽(%)'},{k:'profit.critical_margin',t:'number',l:'利润严重(%)'},{k:'profit.warning_margin',t:'number',l:'利润偏低(%)'},{k:'profit.refund_rate_critical',t:'number',l:'退款率异常(%)'}]},
+  {id:'notify',label:'📢 通知',fields:[{k:'dingtalk.enabled',t:'bool',l:'钉钉通知'},{k:'dingtalk.webhook',t:'input',l:'钉钉 Webhook'},{k:'dingtalk.at_users',t:'textarea',l:'@用户(逗号分隔)'},{k:'wecom.enabled',t:'bool',l:'企微通知'},{k:'wecom.webhook',t:'input',l:'企微 Webhook'}]},
+  {id:'monitor',label:'🎯 监控',fields:[{k:'asins',t:'textarea',l:'监控ASIN(每行一个)'},{k:'skus',t:'textarea',l:'监控SKU(每行一个)'},{k:'keywords',t:'textarea',l:'关键词(每行一个)'}]},
+  {id:'scheduler',label:'⏱ 调度',fields:[{k:'interval_minutes',t:'number',l:'间隔(分钟)'},{k:'enabled_agents',t:'textarea',l:'启用Agent(每行一个)'},{k:'working_hours_only',t:'bool',l:'仅工作时间'},{k:'auto_approve_low_risk',t:'bool',l:'低风险自动执行'}]},
+  {id:'storage',label:'💾 存储',fields:[{k:'raw_retention_days',t:'number',l:'原始保留(天)'},{k:'snapshot_retention_days',t:'number',l:'快照保留(天)'}]},
+  {id:'ui',label:'🎨 界面',fields:[{k:'theme',t:'select',l:'主题',opts:'dark:深色,light:浅色'},{k:'language',t:'select',l:'语言',opts:'zh:中文,en:English'}]},
+  {id:'prompts',label:'📝 Prompt',custom:true},
+  {id:'rag',label:'📚 知识库',custom:true},
+];
+
+async function openSettings(){
+  document.getElementById('settings-modal').classList.add('show');
+  try{configData=await(await fetch(API+'/config',{headers:authHeaders()})).json();}catch(e){}
+  document.getElementById('cfg-tabs').innerHTML=CFG_SECTIONS.map((s,i)=>`<button class="tab ${i===0?'active':''}" onclick="switchCfgTab('${s.id}',event)">${s.label}</button>`).join('');
+  switchCfgTab(CFG_SECTIONS[0].id,null);
+}
+function closeSettings(){document.getElementById('settings-modal').classList.remove('show');}
+function switchCfgTab(id,evt){
+  activeSection=id;
+  document.querySelectorAll('#cfg-tabs .tab').forEach(t=>t.classList.remove('active'));
+  const activeTab=evt?evt.target:document.querySelector('#cfg-tabs .tab[onclick*="'+id+'"]');
+  if(activeTab)activeTab.classList.add('active');
+  const sec=CFG_SECTIONS.find(s=>s.id===id);if(!sec)return;
+  let html='';
+  if(id==='datasource'){
+    html+=`<div id="ds-list" style="margin-bottom:8px">${(configData.datasources||[]).map(ds=>`<div class="ds-item"><span class="ds-name">${ds.name} (${ds.type||''})</span><span class="ds-status ${ds.health==='connected'?'on':'off'}">${ds.health||'unknown'}</span></div>`).join('')}</div>`;
+    html+=`<div class="fg"><label>名称</label><select id="cfg-ds-name"><option value="sellersprite">卖家精灵</option><option value="sorftime">Sorftime</option><option value="lingxing">领星 ERP</option></select></div>`;
+    html+=`<div class="fg"><label>URL</label><input id="cfg-ds-url"></div>`;
+    html+=`<div class="fg"><label>Secret Key</label><input id="cfg-ds-key" type="password" placeholder="留空不修改"></div>`;
+    html+=`<div class="btn-row"><button class="btn prim" onclick="saveCfg('datasource',{name:document.getElementById('cfg-ds-name').value,url:document.getElementById('cfg-ds-url').value,secret_key:document.getElementById('cfg-ds-key').value,enabled:true})">保存</button></div>`;
+  }else if(id==='prompts'){
+    html+='<div class="fg"><label>选择 Prompt</label><select id="prompt-select" onchange="loadPrompt()"></select></div>';
+    html+='<div class="fg"><label>内容</label><textarea id="prompt-content" rows="12"></textarea></div>';
+    html+='<div class="btn-row"><button class="btn prim" onclick="savePrompt()">保存 Prompt</button></div>';
+    setTimeout(async()=>{try{const r=await fetch(API+'/prompts');const d=await r.json();const sel=document.getElementById('prompt-select');const prompts=d.prompts||{};for(const[cat,items]of Object.entries(prompts)){if(typeof items==='object')for(const[name,content]of Object.entries(items)){const opt=document.createElement('option');opt.value=cat+'/'+name;opt.textContent=cat+'/'+name;sel.appendChild(opt);}}if(sel.options.length)loadPrompt();}catch(e){}},200);
+  }else if(id==='rag'){
+    html+='<div class="fg"><label>标题</label><input id="rag-title"></div>';
+    html+='<div class="fg"><label>内容</label><textarea id="rag-content" rows="6"></textarea></div>';
+    html+='<div class="btn-row"><button class="btn prim" onclick="uploadRAG()">上传文档</button></div>';
+    html+='<div id="rag-list" style="margin-top:10px"></div>';
+    setTimeout(loadRAGList,200);
+  }else if(sec.fields){
+    for(const f of sec.fields){
+      let val='';const keys=f.k.split('.');let obj=configData[id]||configData;for(const k of keys)obj=obj?obj[k]:undefined;val=obj!==undefined?obj:'';
+      if(Array.isArray(val))val=val.join('\n');
+      const fid='cfg-'+f.k.replace(/\./g,'-');
+      if(f.t==='select')html+=`<div class="fg"><label>${f.l}</label><select id="${fid}">${(f.opts||'').split(',').map(o=>{const[v,l]=o.split(':');return`<option value="${v}" ${v===String(val)?'selected':''}>${l||v}</option>`}).join('')}</select></div>`;
+      else if(f.t==='bool')html+=`<div class="fg-chk"><input type="checkbox" id="${fid}" ${val===true||val==='true'?'checked':''}><label>${f.l}</label></div>`;
+      else if(f.t==='textarea')html+=`<div class="fg"><label>${f.l}</label><textarea id="${fid}" rows="3">${val}</textarea></div>`;
+      else if(f.t==='password')html+=`<div class="fg"><label>${f.l}</label><input type="password" id="${fid}" placeholder="留空不修改"></div>`;
+      else html+=`<div class="fg"><label>${f.l}</label><input type="${f.t||'text'}" id="${fid}" value="${val}">`;
+    }
+  }
+  html+='<div class="btn-row"><button class="btn prim" onclick="saveCfgSection()">💾 保存</button><button class="btn" onclick="reloadCfg()">🔄 重载</button></div>';
+  document.getElementById('cfg-content').innerHTML=html;
+}
+function getCfgData(section){
+  const sec=CFG_SECTIONS.find(s=>s.id===section);if(!sec||!sec.fields)return{};
+  const data={};
+  for(const f of sec.fields){
+    const el=document.getElementById('cfg-'+f.k.replace(/\./g,'-'));if(!el)continue;
+    let val;if(f.t==='bool')val=el.checked;else if(f.t==='textarea'){const v=el.value.trim();val=f.k.includes('asin')||f.k.includes('sku')||f.k.includes('keyword')||f.k.includes('agent')?v.split('\n').map(s=>s.trim()).filter(Boolean):v;}else if(f.t==='number')val=parseFloat(el.value)||0;else val=el.value;
+    const keys=f.k.split('.');if(keys.length===1)data[keys[0]]=val;else{let obj=data;for(let i=0;i<keys.length-1;i++){if(!obj[keys[i]])obj[keys[i]]={};obj=obj[keys[i]];}obj[keys[keys.length-1]]=val;}
+  }return data;
+}
+async function saveCfgSection(){const data=getCfgData(activeSection);try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section:activeSection,data})});document.getElementById('alert-list').innerHTML='<div style="text-align:center;color:var(--cyan);padding:6px">✅ 已保存</div>';}catch(e){alert(e.message)}}
+async function saveCfg(section,data){try{await fetch(API+'/config/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({section,data})});closeSettings();}catch(e){alert(e.message)}}
+async function reloadCfg(){try{await fetch(API+'/config/reload',{method:'POST',headers:authHeaders()});location.reload();}catch(e){}}
+async function loadPrompt(){const sel=document.getElementById('prompt-select');if(!sel||!sel.value)return;const[cat,name]=sel.value.split('/');try{const r=await fetch(API+'/prompts');const d=await r.json();const content=(d.prompts||{})[cat]||{};document.getElementById('prompt-content').value=content[name]||'';}catch(e){}}
+async function savePrompt(){const sel=document.getElementById('prompt-select');if(!sel||!sel.value)return;const[category,name]=sel.value.split('/');const content=document.getElementById('prompt-content').value;try{await fetch(API+'/prompts/update',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({category,name,content})});alert('Prompt 已保存');}catch(e){alert(e.message)}}
+async function uploadRAG(){const title=document.getElementById('rag-title').value.trim(),content=document.getElementById('rag-content').value.trim();if(!title||!content)return;try{await fetch(API+'/rag/upload',{method:'POST',headers:{'Content-Type':'application/json',...authHeaders()},body:JSON.stringify({title,content})});document.getElementById('rag-title').value='';document.getElementById('rag-content').value='';loadRAGList();}catch(e){alert(e.message)}}
+async function loadRAGList(){try{const r=await fetch(API+'/rag/documents',{headers:authHeaders()});const d=await r.json();const docs=d.documents||[];document.getElementById('rag-list').innerHTML=docs.map(d=>`<div class="ds-item"><span class="ds-name">${d.title} (${d.chunks} chunks)</span><button class="btn" onclick="deleteRAG('${d.doc_id}')">✕</button></div>`).join('')||'暂无文档';}catch(e){}}
+async function deleteRAG(docId){try{await fetch(API+'/rag/documents/'+docId,{method:'DELETE',headers:authHeaders()});loadRAGList();}catch(e){}}
+document.getElementById('settings-modal').addEventListener('click',function(e){if(e.target===this)closeSettings();});
+</script></body></html>

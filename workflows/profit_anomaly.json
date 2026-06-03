@@ -1,0 +1,132 @@
+{
+  "name": "profit_analysis_workflow",
+  "description": "利润异常预警工作流 — 每日分析利润变化，检测毛利率崩塌、退款异常、广告占比过高",
+  "trigger_type": "scheduled",
+  "trigger_config": {
+    "type": "cron",
+    "expression": "0 6 * * *",
+    "description": "每天早上6点执行"
+  },
+  "nodes": [
+    {
+      "id": "node_001",
+      "name": "拉取利润报表",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_profit_report",
+        "params": {},
+        "description": "从领星ERP获取昨日的利润数据"
+      },
+      "risk_level": 0,
+      "retry_count": 3,
+      "timeout_ms": 30000,
+      "position": [300, 100]
+    },
+    {
+      "id": "node_002",
+      "name": "拉取广告花费数据",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_ad_performance_today",
+        "params": {},
+        "description": "获取广告数据用于计算广告占比"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 250]
+    },
+    {
+      "id": "node_003",
+      "name": "LLM利润异常分析",
+      "type": "llm_call",
+      "config": {
+        "prompt": "你是亚马逊财务分析专家。请分析以下利润数据，定位利润异常的根本原因：\n\n利润报表：{profit_data}\n广告数据：{ad_performance}\n\n对每个SKU分析：\n1. 毛利率是否低于10%？低于15%？vs 30天均值变化？\n2. 退款率是否 > 10%？退款金额趋势？\n3. 广告费占比是否 > 25%？广告效率？\n4. FBA费率是否有异常增长？\n5. 根因分析：退款率上升？广告成本？竞品降价？\n\n以JSON格式输出。对每个异常SKU给出：issue_type(profit_margin/refund/ad_cost/fba_fee), severity(critical/warning), root_cause(根因), recommendation(建议)",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 60000,
+      "position": [550, 175]
+    },
+    {
+      "id": "node_004",
+      "name": "判断是否有利润异常",
+      "type": "condition",
+      "config": {
+        "condition": "llm_result.critical_count > 0 OR llm_result.warning_count > 0",
+        "true_branch": "node_005",
+        "false_branch": "node_007"
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [800, 175]
+    },
+    {
+      "id": "node_005",
+      "name": "生成利润异常报告",
+      "type": "llm_call",
+      "config": {
+        "prompt": "基于以下利润异常分析，生成管理层级别的预警报告：\n\n分析结果：{llm_analysis}\n\n格式：\n## 💰 利润异常预警 — {date}\n\n### 🔴 严重异常（立即处理）\n- SKU xxx: 毛利率{xx}%，根因：{xx}，建议：{xx}\n\n### 🟡 关注项\n- SKU xxx: 毛利率{xx}%，根因：{xx}，建议：{xx}\n\n### 📊 汇总\n| 指标 | 昨日 | 30天均值 | 变化 |\n|------|------|----------|------|\n| 毛利率 | x% | x% | -x% |\n| 退款率 | x% | x% | +x% |\n| 广告占比 | x% | x% | +x% |",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 2048
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 45000,
+      "position": [1050, 125]
+    },
+    {
+      "id": "node_006",
+      "name": "推送给财务+运营负责人",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "{profit_report}",
+        "at_users": ["@财务", "@运营主管"]
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [1300, 125]
+    },
+    {
+      "id": "node_007",
+      "name": "记录利润快照",
+      "type": "output",
+      "config": {
+        "save_to_db": true,
+        "update_dashboard": true
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [1300, 275]
+    }
+  ],
+  "connections": {
+    "node_001": ["node_003"],
+    "node_002": ["node_003"],
+    "node_003": ["node_004"],
+    "node_004": ["node_005", "node_007"],
+    "node_005": ["node_006"],
+    "node_006": ["node_007"]
+  },
+  "settings": {
+    "executionTimeout": 300,
+    "retryOnFail": true,
+    "retryCount": 3,
+    "maxExecutions": 100,
+    "saveManualExecutions": true
+  },
+  "tags": ["profit", "finance", "alert", "daily"],
+  "meta": {
+    "version": "1.0.0",
+    "category": "profit",
+    "status": "active",
+    "priority": "high",
+    "environment": "production"
+  }
+}

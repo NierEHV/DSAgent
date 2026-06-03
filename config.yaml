@@ -1,0 +1,129 @@
+# ═══════════════════════════════════════════════
+# DS Agent v3.0 完整配置文件
+# 所有项均可从前端修改, 保存即时生效
+# 环境变量: ${VAR} 或 ${VAR:-默认值}
+# ═══════════════════════════════════════════════
+
+# ──── LLM ────
+llm:
+  provider: deepseek
+  model: deepseek-chat
+  api_key: ${DEEPSEEK_KEY:-}
+  base_url: https://api.deepseek.com/v1
+  max_tokens: 4096
+  temperature: 0.3
+
+# ──── 数据源 ────
+datasources:
+  - name: sellersprite
+    type: mcp_sse
+    url: https://mcp.sellersprite.com/sse
+    secret_key: ${SELLERSPRITE_KEY:-}
+    enabled: true
+  - name: sorftime
+    type: mcp_http
+    url: https://mcp.sorftime.com
+    auth_key: ${SORFTIME_KEY:-}
+    enabled: false
+  - name: lingxing
+    type: rest_api
+    base_url: ${LINGXING_BASE_URL:-http://localhost:8001}
+    api_key: ${LINGXING_KEY:-}
+    enabled: true
+
+# ──── 数据路由 (Agent → 数据源优先级) ────
+routing:
+  inventory: [lingxing, sellersprite]
+  sales: [lingxing, sellersprite, sorftime]
+  advertising: [lingxing, sellersprite]
+  competitor: [sellersprite, sorftime]
+  keyword: [sellersprite, sorftime]
+  market: [sellersprite, sorftime]
+  review: [sellersprite, sorftime]
+  profit: [lingxing]
+  product: [sellersprite, sorftime, lingxing]
+
+# ──── 调度器 ────
+scheduler:
+  interval_minutes: 5
+  auto_approve_low_risk: true
+  enabled_agents: [inventory, advertising, competitor, profit]
+  working_hours_only: false
+  working_hours_start: "09:00"
+  working_hours_end: "18:00"
+
+# ──── 告警规则阈值 ────
+alert_rules:
+  inventory:
+    critical_days: 7
+    warning_days: 14
+    excess_days: 90
+  advertising:
+    acos_spike_threshold: 30
+    acos_spike_ratio: 1.5
+    budget_exhausted_pct: 90
+    high_performer_acos: 15
+    high_performer_roas: 5.0
+  profit:
+    critical_margin: 10
+    warning_margin: 15
+    refund_rate_critical: 10
+  competitor:
+    buy_box_lost_enabled: true
+    new_seller_enabled: true
+    new_seller_rating_threshold: 3.0
+
+# ──── 通知渠道 ────
+notify:
+  dingtalk:
+    enabled: false
+    webhook: ${DINGTALK_WEBHOOK:-}
+    at_users: []
+    min_severity: warning
+  wecom:
+    enabled: false
+    webhook: ${WECOM_WEBHOOK:-}
+    min_severity: warning
+  email:
+    enabled: false
+    smtp_host: ""
+    smtp_port: 587
+    from_addr: ""
+    to_addrs: []
+    min_severity: critical
+
+# ──── 监控对象 ────
+monitor:
+  asins:
+    - B09XYZ0001
+    - B07DEF5678
+    - B08ABC1234
+    - B05GHI9012
+  skus:
+    - SKU-BT001-BLK
+    - SKU-BT001-WHT
+    - SKU-SPK001
+    - SKU-CHG001
+    - SKU-CHG002
+    - SKU-LMP001
+    - SKU-BTL001
+    - SKU-BTL002
+  keywords:
+    - bluetooth earbuds
+    - usb c charger
+    - portable speaker
+    - wireless headphones
+
+# ──── 存储 ────
+storage:
+  raw_retention_days: 7
+  snapshot_retention_days: 90
+
+# ──── 界面 ────
+ui:
+  theme: dark
+  refresh_interval_seconds: 300
+  language: zh
+
+# ──── Mock 模式 ────
+mock_mode: true

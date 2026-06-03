@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+
+# Virtual env
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project data
+data/
+*.db
+*.sqlite
+
+# Environment
+.env
+!.env.example
+
+# Docker
+*.log
+
+# Electron
+electron/node_modules/
+dist-electron/
+
+# Temp
+tmp/
+temp/

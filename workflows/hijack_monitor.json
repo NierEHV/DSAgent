@@ -1,0 +1,158 @@
+{
+  "name": "competitor_monitor_workflow",
+  "description": "跟卖监控工作流 — 每2小时扫描核心ASIN，检测跟卖、Buy Box丢失、价格异常",
+  "trigger_type": "scheduled",
+  "trigger_config": {
+    "type": "cron",
+    "expression": "0 */2 * * *",
+    "description": "每2小时执行一次"
+  },
+  "nodes": [
+    {
+      "id": "node_001",
+      "name": "拉取Buy Box状态",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_buy_box",
+        "params": {
+          "asin_list": ["B09XYZ0001", "B07DEF5678", "B08ABC1234", "B05GHI9012", "B06JKL3456"]
+        },
+        "description": "获取核心ASIN的Buy Box所有者信息"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 100]
+    },
+    {
+      "id": "node_002",
+      "name": "检测新卖家和价格异常",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_new_sellers",
+        "params": {
+          "asin_list": ["B09XYZ0001", "B07DEF5678", "B08ABC1234", "B05GHI9012", "B06JKL3456"],
+          "lookback_hours": 2
+        },
+        "description": "检测最近2小时新出现的卖家"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 250]
+    },
+    {
+      "id": "node_003",
+      "name": "拉取价格对比",
+      "type": "tool_call",
+      "config": {
+        "tool_name": "get_price_comparison",
+        "params": {
+          "asin_list": ["B09XYZ0001", "B07DEF5678", "B08ABC1234", "B05GHI9012", "B06JKL3456"]
+        },
+        "description": "我方价格 vs 竞品价格对比"
+      },
+      "risk_level": 0,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [300, 400]
+    },
+    {
+      "id": "node_004",
+      "name": "LLM跟卖风险评估",
+      "type": "llm_call",
+      "config": {
+        "prompt": "你是亚马逊Listing保护专家。请分析以下数据，评估跟卖风险：\n\nBuy Box状态：{buy_box_data}\n新卖家检测：{new_sellers}\n价格对比：{price_data}\n\n对每个ASIN评估：\n1. Buy Box是否在我方？若丢失，丢失原因？\n2. 是否有恶意跟卖（新账号、低价、低评分）？\n3. 价格竞争力 — 是否需要调价？\n4. 建议行动：投诉？Test Buy？降价？调Listing？\n\n以JSON输出，包含: threats(威胁列表), actions(建议行动), priority(high/medium/low)",
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096
+      },
+      "risk_level": 1,
+      "retry_count": 2,
+      "timeout_ms": 60000,
+      "position": [550, 250]
+    },
+    {
+      "id": "node_005",
+      "name": "判断是否有高危威胁",
+      "type": "condition",
+      "config": {
+        "condition": "llm_result.has_critical_threat == true",
+        "true_branch": "node_006",
+        "false_branch": "node_008"
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [800, 250]
+    },
+    {
+      "id": "node_006",
+      "name": "🔴 即时告警推送",
+      "type": "notify",
+      "config": {
+        "channel": "dingtalk",
+        "message": "🔴 **跟卖威胁告警**\n\n{threat_details}\n\n建议行动:\n{actions}",
+        "at_users": ["@运营主管", "@所有人"]
+      },
+      "risk_level": 2,
+      "retry_count": 2,
+      "timeout_ms": 15000,
+      "position": [1050, 200]
+    },
+    {
+      "id": "node_007",
+      "name": "人工审核确认",
+      "type": "human_review",
+      "config": {
+        "approval": {
+          "title": "跟卖投诉审批",
+          "description": "AI检测到高危跟卖威胁，建议采取投诉/Test Buy行动，请审批",
+          "channel": "dingtalk",
+          "timeout_minutes": 60,
+          "actions": ["approve_complaint", "approve_test_buy", "monitor_only", "reject"]
+        }
+      },
+      "risk_level": 3,
+      "retry_count": 1,
+      "timeout_ms": 3600000,
+      "position": [1300, 200]
+    },
+    {
+      "id": "node_008",
+      "name": "记录监控快照",
+      "type": "output",
+      "config": {
+        "save_to_db": true,
+        "update_dashboard": true
+      },
+      "risk_level": 0,
+      "retry_count": 1,
+      "timeout_ms": 5000,
+      "position": [1300, 350]
+    }
+  ],
+  "connections": {
+    "node_001": ["node_004"],
+    "node_002": ["node_004"],
+    "node_003": ["node_004"],
+    "node_004": ["node_005"],
+    "node_005": ["node_006", "node_008"],
+    "node_006": ["node_007"],
+    "node_007": ["node_008"]
+  },
+  "settings": {
+    "executionTimeout": 600,
+    "retryOnFail": true,
+    "retryCount": 2,
+    "maxExecutions": 500,
+    "saveManualExecutions": true
+  },
+  "tags": ["competitor", "hijack", "buy_box", "alert"],
+  "meta": {
+    "version": "1.0.0",
+    "category": "competitor",
+    "status": "active",
+    "priority": "critical",
+    "environment": "production"
+  }
+}

@@ -37,6 +37,7 @@ from auth.router import router as auth_router
 from auth.middleware import require_role, optional_user, get_current_user
 from auth.models import Role, User
 from webhooks.receiver import router as webhook_router
+from n8n.client import get_n8n_client, N8NClient
 
 # ──── App ────
 app = FastAPI(
@@ -82,6 +83,9 @@ class AgentHub:
         from agents.listing_agent import ListingAgent
 
         self.settings = settings
+
+        # n8n 工作流客户端
+        self.n8n = get_n8n_client()
 
         # LLM
         try:
@@ -513,6 +517,65 @@ async def get_decision_status(decision_id: str):
     if not agent_hub:
         raise HTTPException(404)
     return agent_hub.decision_engine.get_approval_status(decision_id)
+
+
+# ──── n8n 工作流引擎 ────
+
+@app.get("/n8n/health")
+async def n8n_health():
+    n8n = get_n8n_client()
+    return await n8n.health()
+
+
+@app.get("/n8n/workflows")
+async def list_n8n_workflows(active_only: bool = False):
+    n8n = get_n8n_client()
+    if active_only:
+        return {"workflows": await n8n.list_active_workflows()}
+    return {"workflows": await n8n.list_workflows()}
+
+
+class N8NTriggerRequest(BaseModel):
+    webhook_path: str
+    data: dict = {}
+
+
+@app.post("/n8n/trigger")
+async def trigger_n8n_workflow(request: N8NTriggerRequest,
+                               user: User = Depends(require_role(Role.OPERATOR))):
+    """触发 n8n Webhook 工作流"""
+    n8n = get_n8n_client()
+    result = await n8n.trigger_webhook(request.webhook_path, request.data)
+    return result
+
+
+@app.post("/n8n/alert")
+async def trigger_n8n_alert(alert_type: str = "inventory_low",
+                            data: dict = {}):
+    """触发 n8n 告警工作流 (Agent 自动调用)"""
+    n8n = get_n8n_client()
+    result = await n8n.trigger_alert(alert_type, data)
+    return result
+
+
+class ImportRequest(BaseModel):
+    path: str
+    pattern: str = "*.json"
+
+
+@app.post("/n8n/import")
+async def import_n8n_workflows(request: ImportRequest,
+                               user: User = Depends(require_role(Role.ADMIN))):
+    """批量导入 n8n 工作流"""
+    n8n = get_n8n_client()
+    result = await n8n.batch_import(request.path, request.pattern)
+    return result
+
+
+@app.get("/n8n/executions")
+async def get_n8n_executions(limit: int = 20):
+    n8n = get_n8n_client()
+    return {"executions": await n8n.get_executions(limit)}
 
 
 # ──── 实时事件 (动态 Mock) ────
